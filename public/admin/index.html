@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - YouTube Summarizer Pro</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <!-- Login Page -->
+  <div id="loginPage" class="page active">
+    <div class="login-container">
+      <h1>🔐 Admin Login</h1>
+      <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Admin Email" required>
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button type="submit">Login</button>
+      </form>
+      <div id="loginError" class="error"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard Page -->
+  <div id="dashboardPage" class="page">
+    <nav class="navbar">
+      <h1>📊 YouTube Summarizer Pro - Admin</h1>
+      <div class="nav-right">
+        <span id="adminEmail"></span>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </nav>
+
+    <div class="dashboard-container">
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total Users</h3>
+          <div class="stat-value" id="totalUsers">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>Free Users</h3>
+          <div class="stat-value" id="freeUsers">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>Premium Users</h3>
+          <div class="stat-value" id="premiumUsers">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>Managed Users</h3>
+          <div class="stat-value" id="managedUsers">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>Videos Today</h3>
+          <div class="stat-value" id="videosToday">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>Cost Today</h3>
+          <div class="stat-value" id="costToday">$0</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="models">Model Configuration</button>
+        <button class="tab" data-tab="users">Users</button>
+        <button class="tab" data-tab="students">Student Verifications</button>
+        <button class="tab" data-tab="settings">Settings</button>
+        <button class="tab" data-tab="logs">Logs</button>
+      </div>
+
+      <!-- Model Configuration Tab -->
+      <div id="modelsTab" class="tab-content active">
+        <h2>AI Model Configuration</h2>
+        <p>Configure which AI model to use for each tier. Changes apply to all users in that tier.</p>
+        <div id="modelsList" class="models-grid"></div>
+      </div>
+
+      <!-- Users Tab -->
+      <div id="usersTab" class="tab-content">
+        <h2>User Management</h2>
+        <div id="usersList" class="users-table"></div>
+      </div>
+
+      <!-- Student Verifications Tab -->
+      <div id="studentsTab" class="tab-content">
+        <h2>Student Verification Requests</h2>
+        <div class="filter-buttons">
+          <button class="filter-btn active" data-filter="pending">Pending</button>
+          <button class="filter-btn" data-filter="approved">Approved</button>
+          <button class="filter-btn" data-filter="rejected">Rejected</button>
+          <button class="filter-btn" data-filter="all">All</button>
+        </div>
+        <div id="studentsList" class="students-table"></div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="settingsTab" class="tab-content">
+        <h2>System Settings</h2>
+
+        <!-- Email Testing Section -->
+        <div class="settings-section">
+          <h3>📧 Email Service Testing</h3>
+          <p>Test if emails are being sent correctly from your configured email service.</p>
+          <div class="email-test-box">
+            <div class="form-group">
+              <label for="testEmail">Test Email Address:</label>
+              <input type="email" id="testEmail" placeholder="Enter email to receive test message" required>
+            </div>
+            <button id="sendTestEmailBtn" class="btn-test-email">
+              📨 Send Test Email
+            </button>
+            <div id="emailTestResult" class="test-result"></div>
+          </div>
+        </div>
+
+        <div id="settingsList" class="settings-grid"></div>
+      </div>
+
+      <!-- Logs Tab -->
+      <div id="logsTab" class="tab-content">
+        <h2>Admin Action Logs</h2>
+        <div id="logsList" class="logs-table"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
