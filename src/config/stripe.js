@@ -6,7 +6,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // Stripe Price IDs (Customer Portal - Separate Products)
 const STRIPE_PRICES = {
   // Free Plan
-  free_plan: process.env.STRIPE_PRICE_FREE_PLAN || 'price_1SFtGuSEC06Y8mAjEPUHZIkd',
+  free_plan: process.env.STRIPE_PRICE_FREE_PLAN || 'price_1SFtTUSEC06Y8mAjhyrWSJyl',
 
   // BYOK Prices
   byok_premium_yearly: process.env.STRIPE_PRICE_BYOK_PREMIUM || 'price_1SFqZbSEC06Y8mAj7VrCPBaZ',
