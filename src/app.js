@@ -9,6 +9,8 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const userRoutes = require('./routes/user');
 const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/students');
+const stripeRoutes = require('./routes/stripe');
+const webhookRoutes = require('./routes/webhook');
 
 const app = express();
 
@@ -46,6 +48,9 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// Webhook route MUST come before body parsing (needs raw body)
+app.use('/api/webhook', webhookRoutes);
 
 // Body parsing
 app.use(express.json());
@@ -95,6 +100,7 @@ app.get('/health', (req, res) => {
 app.use('/api', userRoutes);
 app.use('/api', adminRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/stripe', stripeRoutes);
 
 // Root route
 app.get('/', (req, res) => {
