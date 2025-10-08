@@ -3,22 +3,22 @@
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-// Stripe Price IDs (from STRIPE_PRODUCTS_TO_CREATE.md)
+// Stripe Price IDs (Customer Portal - Separate Products)
 const STRIPE_PRICES = {
   // BYOK Prices
-  byok_premium_yearly: process.env.STRIPE_PRICE_BYOK_PREMIUM || 'price_1SFZLTSEC06Y8mAjjsC1kVhy',
-  byok_unlimited_yearly: process.env.STRIPE_PRICE_BYOK_UNLIMITED || 'price_1SFZNDSEC06Y8mAjjDxBFerr',
-  byok_lifetime: process.env.STRIPE_PRICE_BYOK_LIFETIME || 'price_1SFZNoSEC06Y8mAj0J29Er1s',
+  byok_premium_yearly: process.env.STRIPE_PRICE_BYOK_PREMIUM || 'price_1SFqZbSEC06Y8mAj7VrCPBaZ',
+  byok_unlimited_yearly: process.env.STRIPE_PRICE_BYOK_UNLIMITED || 'price_1SFqaFSEC06Y8mAjeMdV3v9X',
+  byok_lifetime: process.env.STRIPE_PRICE_BYOK_LIFETIME || 'price_1SFqamSEC06Y8mAjmE94GJMI',
 
   // Managed Prices
-  managed_monthly: process.env.STRIPE_PRICE_MANAGED_MONTHLY || 'price_1SFZRqSEC06Y8mAjSTU6kfWQ',
-  managed_annual: process.env.STRIPE_PRICE_MANAGED_ANNUAL || 'price_1SFZbVSEC06Y8mAjCsaw0FIv',
+  managed_monthly: process.env.STRIPE_PRICE_MANAGED_MONTHLY || 'price_1SFqbRSEC06Y8mAjmdQa5KuI',
+  managed_annual: process.env.STRIPE_PRICE_MANAGED_ANNUAL || 'price_1SFqbwSEC06Y8mAjBVToL29F',
 
   // Student Prices
-  student_premium_byok: process.env.STRIPE_PRICE_STUDENT_PREMIUM || 'price_1SFZuXSEC06Y8mAjizZbc2sx',
-  student_unlimited_byok: process.env.STRIPE_PRICE_STUDENT_UNLIMITED || 'price_1SFZvOSEC06Y8mAjDb9mpn6m',
-  student_monthly_managed: process.env.STRIPE_PRICE_STUDENT_MONTHLY || 'price_1SFZwVSEC06Y8mAjsQCk6H9G',
-  student_annual_managed: process.env.STRIPE_PRICE_STUDENT_ANNUAL || 'price_1SFZxISEC06Y8mAjOGMLmqCW'
+  student_premium_byok: process.env.STRIPE_PRICE_STUDENT_PREMIUM || 'price_1SFqcRSEC06Y8mAjWiOxN2L4',
+  student_unlimited_byok: process.env.STRIPE_PRICE_STUDENT_UNLIMITED || 'price_1SFqcvSEC06Y8mAj2iYzz9O9',
+  student_monthly_managed: process.env.STRIPE_PRICE_STUDENT_MONTHLY || 'price_1SFqdRSEC06Y8mAjDmaVPtyN',
+  student_annual_managed: process.env.STRIPE_PRICE_STUDENT_ANNUAL || 'price_1SFqe2SEC06Y8mAjIsvrQ1G1'
 };
 
 // Price to tier mapping (for updating user tier after payment)

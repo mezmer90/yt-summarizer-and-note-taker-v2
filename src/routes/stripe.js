@@ -397,4 +397,53 @@ router.get('/subscription-status/:extensionUserId', async (req, res) => {
   }
 });
 
+// ============================================
+// ENDPOINT 5: Create Customer Portal Session
+// ============================================
+router.post('/create-portal-session', async (req, res) => {
+  try {
+    const { extensionUserId, returnUrl } = req.body;
+
+    if (!extensionUserId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: extensionUserId'
+      });
+    }
+
+    // Get user's Stripe customer ID
+    const userResult = await pool.query(
+      'SELECT stripe_customer_id FROM users WHERE extension_user_id = $1',
+      [extensionUserId]
+    );
+
+    if (userResult.rows.length === 0 || !userResult.rows[0].stripe_customer_id) {
+      return res.status(404).json({
+        success: false,
+        error: 'No customer found. Please subscribe to a plan first.'
+      });
+    }
+
+    const customerId = userResult.rows[0].stripe_customer_id;
+
+    // Create Stripe Customer Portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl || `${process.env.FRONTEND_URL || 'https://yt-summarizer-and-note-taker-production.up.railway.app'}/pricing`
+    });
+
+    res.json({
+      success: true,
+      url: session.url
+    });
+
+  } catch (error) {
+    console.error('Customer Portal session creation error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
