@@ -132,61 +132,40 @@
   </div>
 
   <script>
+    console.log('Payment success page loaded');
+
     // Get session ID from URL
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session_id');
     const extensionId = urlParams.get('ext_id');
 
-    let attempts = 0;
-    const maxAttempts = 30; // 30 seconds max
+    console.log('Session ID:', sessionId);
+    console.log('Extension ID:', extensionId);
 
-    async function checkActivation() {
-      attempts++;
+    // If payment is successful, redirect immediately
+    if (sessionId && extensionId) {
+      // Wait 2 seconds, then redirect to extension
+      setTimeout(() => {
+        const extensionUrl = `chrome-extension://${extensionId}/popup.html`;
+        console.log('Redirecting to:', extensionUrl);
 
-      try {
-        // Check if subscription is activated by verifying session
-        const response = await fetch(`/api/stripe/check-session/${sessionId}`);
-        const data = await response.json();
+        // Update status
+        document.getElementById('status').textContent = 'Payment confirmed! Redirecting to extension...';
 
-        if (data.success && data.activated) {
-          document.getElementById('status').textContent = 'Subscription activated! Redirecting...';
+        // Show manual link
+        const manualLink = document.getElementById('manualLink');
+        manualLink.href = extensionUrl;
+        manualLink.style.display = 'inline-block';
 
-          // Try to redirect to extension
-          const extensionUrl = `chrome-extension://${extensionId}/popup.html`;
-
-          // Set up manual link
-          document.getElementById('manualLink').href = extensionUrl;
-          document.getElementById('manualLink').style.display = 'inline-block';
-
-          // Attempt automatic redirect
-          setTimeout(() => {
-            window.location.href = extensionUrl;
-          }, 1500);
-
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking activation:', error);
-      }
-
-      // Continue polling
-      if (attempts < maxAttempts) {
-        setTimeout(checkActivation, 1000);
-      } else {
-        document.getElementById('status').textContent = 'Activation is taking longer than expected. Please close this tab and check your extension.';
-        if (extensionId) {
-          const extensionUrl = `chrome-extension://${extensionId}/popup.html`;
-          document.getElementById('manualLink').href = extensionUrl;
-          document.getElementById('manualLink').style.display = 'inline-block';
-        }
-      }
-    }
-
-    // Start checking activation after 2 seconds
-    if (sessionId) {
-      setTimeout(checkActivation, 2000);
+        // Try automatic redirect
+        setTimeout(() => {
+          console.log('Attempting redirect...');
+          window.location.href = extensionUrl;
+        }, 1500);
+      }, 2000);
     } else {
-      document.getElementById('status').textContent = 'Please close this tab and check your extension.';
+      document.getElementById('status').textContent = 'Payment successful! Please close this tab and open your extension.';
+      console.error('Missing session_id or ext_id in URL');
     }
   </script>
 </body>
