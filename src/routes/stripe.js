@@ -252,6 +252,169 @@ router.post('/verify-code', async (req, res) => {
 });
 
 // ============================================
+// LOGIN ENDPOINTS (for existing customers)
+// ============================================
+
+// Send login verification code
+router.post('/send-login-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    // Check if user exists by email
+    const existingUser = await pool.query(
+      'SELECT extension_user_id, email FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No account found with this email. Please sign up first.'
+      });
+    }
+
+    const extensionUserId = existingUser.rows[0].extension_user_id;
+
+    // Generate 6-digit code
+    const verificationCode = generateVerificationCode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Delete existing verification for this user
+    await pool.query(
+      'DELETE FROM email_verifications WHERE extension_user_id = $1',
+      [extensionUserId]
+    );
+
+    // Store verification code
+    await pool.query(
+      `INSERT INTO email_verifications (extension_user_id, email, verification_code, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [extensionUserId, email, verificationCode, expiresAt]
+    );
+
+    // Send email
+    const emailResult = await sendEmailVerificationCode(email, verificationCode);
+
+    if (!emailResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send login code. Please try again.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Login code sent to your email',
+      expiresIn: 600
+    });
+
+  } catch (error) {
+    console.error('Send login code error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Verify login code and restore account
+router.post('/verify-login-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    // Get verification record by email
+    const verification = await pool.query(
+      `SELECT * FROM email_verifications
+       WHERE email = $1 AND verified = FALSE`,
+      [email]
+    );
+
+    if (verification.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No login request found. Please request a new code.'
+      });
+    }
+
+    const record = verification.rows[0];
+
+    // Check expiration
+    if (new Date() > new Date(record.expires_at)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Login code expired. Please request a new code.'
+      });
+    }
+
+    // Check attempts (max 5)
+    if (record.attempts >= 5) {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many failed attempts. Please request a new code.'
+      });
+    }
+
+    // Verify code
+    if (record.verification_code !== code) {
+      await pool.query(
+        'UPDATE email_verifications SET attempts = attempts + 1 WHERE id = $1',
+        [record.id]
+      );
+
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid login code. Please try again.',
+        attemptsLeft: 5 - (record.attempts + 1)
+      });
+    }
+
+    // Code correct! Mark as verified
+    await pool.query(
+      'UPDATE email_verifications SET verified = TRUE WHERE id = $1',
+      [record.id]
+    );
+
+    // Get user's subscription data
+    const user = await pool.query(
+      `SELECT extension_user_id, email, stripe_customer_id, stripe_subscription_id,
+              tier, plan_name, subscription_status, subscription_start_date
+       FROM users
+       WHERE extension_user_id = $1`,
+      [record.extension_user_id]
+    );
+
+    if (user.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User account not found'
+      });
+    }
+
+    const userData = user.rows[0];
+
+    res.json({
+      success: true,
+      message: 'Login successful! Account restored.',
+      user: {
+        extensionUserId: userData.extension_user_id,
+        email: userData.email,
+        tier: userData.tier,
+        planName: userData.plan_name,
+        subscriptionStatus: userData.subscription_status
+      }
+    });
+
+  } catch (error) {
+    console.error('Verify login code error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
 // ENDPOINT 2: Create Checkout Session
 // ============================================
 router.post('/create-checkout', async (req, res) => {
