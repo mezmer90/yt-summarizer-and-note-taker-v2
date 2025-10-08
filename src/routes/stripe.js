@@ -179,6 +179,17 @@ router.post('/verify-code', async (req, res) => {
 
     let customerId = existingUser.rows[0]?.stripe_customer_id;
 
+    // Verify customer exists in Stripe, create new one if not
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId);
+      } catch (error) {
+        // Customer doesn't exist in Stripe anymore, create new one
+        console.log(`Customer ${customerId} not found in Stripe, creating new customer`);
+        customerId = null;
+      }
+    }
+
     // Create Stripe customer if doesn't exist
     if (!customerId) {
       const customer = await stripe.customers.create({
