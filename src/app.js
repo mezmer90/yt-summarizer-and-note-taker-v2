@@ -66,9 +66,10 @@ if (process.env.NODE_ENV !== 'production') {
 // Rate limiting
 app.use('/api', apiLimiter);
 
-// Static files for admin dashboard
+// Static files for admin dashboard and payment pages
 app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 app.use('/success', express.static(path.join(__dirname, '../public/success')));
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Health check
 app.get('/health', (req, res) => {

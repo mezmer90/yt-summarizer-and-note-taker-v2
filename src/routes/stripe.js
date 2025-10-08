@@ -882,6 +882,42 @@ router.post('/create-portal-session', async (req, res) => {
 });
 
 // ============================================
+// ENDPOINT: Check Session Activation Status
+// ============================================
+router.get('/check-session/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    // Retrieve session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+
+    // Check if payment is complete
+    const activated = session.payment_status === 'paid';
+
+    res.json({
+      success: true,
+      activated,
+      paymentStatus: session.payment_status,
+      extensionUserId: session.metadata?.extension_user_id
+    });
+
+  } catch (error) {
+    console.error('Check session error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================
 // ENDPOINT 6: Upgrade to Lifetime (with automatic refund)
 // ============================================
 router.post('/upgrade-to-lifetime', async (req, res) => {
