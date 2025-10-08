@@ -836,7 +836,7 @@ router.get('/subscription-status/:extensionUserId', async (req, res) => {
     const result = await pool.query(
       `SELECT
         tier, plan_name, subscription_status,
-        stripe_subscription_id, stripe_price_id,
+        stripe_subscription_id, stripe_price_id, stripe_customer_id,
         subscription_start_date, subscription_end_date,
         subscription_cancel_at, trial_end_date
        FROM users
@@ -854,26 +854,55 @@ router.get('/subscription-status/:extensionUserId', async (req, res) => {
 
     const user = result.rows[0];
 
-    // If they have a subscription ID, fetch latest from Stripe
-    if (user.stripe_subscription_id) {
+    // If they have a customer ID, fetch ALL active subscriptions from Stripe
+    if (user.stripe_customer_id) {
       try {
-        const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
-
-        return res.json({
-          success: true,
-          tier: user.tier,
-          planName: user.plan_name,
-          subscription: {
-            id: subscription.id,
-            status: subscription.status,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-            cancelAtPeriodEnd: subscription.cancel_at_period_end,
-            trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-            priceId: user.stripe_price_id
-          }
+        // List all subscriptions for this customer
+        const subscriptions = await stripe.subscriptions.list({
+          customer: user.stripe_customer_id,
+          status: 'active',
+          limit: 10
         });
+
+        // Find the first active non-free subscription
+        const activeSubscription = subscriptions.data.find(sub => {
+          const priceId = sub.items.data[0].price.id;
+          return priceId !== STRIPE_PRICES.free_plan && sub.status === 'active';
+        });
+
+        if (activeSubscription) {
+          const priceId = activeSubscription.items.data[0].price.id;
+          const tier = PRICE_TO_TIER[priceId] || user.tier;
+          const planName = PRICE_TO_PLAN_NAME[priceId] || user.plan_name;
+
+          // Update database if it's out of sync
+          if (user.stripe_subscription_id !== activeSubscription.id || user.tier !== tier) {
+            await pool.query(
+              `UPDATE users
+               SET stripe_subscription_id = $1, stripe_price_id = $2, tier = $3, plan_name = $4,
+                   subscription_status = $5, updated_at = NOW()
+               WHERE extension_user_id = $6`,
+              [activeSubscription.id, priceId, tier, planName, activeSubscription.status, extensionUserId]
+            );
+            console.log(`✅ Synced database for user ${extensionUserId}: ${planName}`);
+          }
+
+          return res.json({
+            success: true,
+            tier: tier,
+            planName: planName,
+            subscription: {
+              id: activeSubscription.id,
+              status: activeSubscription.status,
+              currentPeriodEnd: new Date(activeSubscription.current_period_end * 1000),
+              cancelAtPeriodEnd: activeSubscription.cancel_at_period_end,
+              trialEnd: activeSubscription.trial_end ? new Date(activeSubscription.trial_end * 1000) : null,
+              priceId: priceId
+            }
+          });
+        }
       } catch (stripeError) {
-        console.error('Error fetching subscription from Stripe:', stripeError);
+        console.error('Error fetching subscriptions from Stripe:', stripeError);
         // Fall back to database data
       }
     }
