@@ -543,16 +543,21 @@ router.post('/create-checkout', async (req, res) => {
       }
     };
 
+    // Add subscription metadata for all subscription modes
+    if (sessionParams.mode === 'subscription') {
+      sessionParams.subscription_data = {
+        metadata: {
+          extension_user_id: extensionUserId,
+          price_id: priceId
+        }
+      };
+    }
+
     // Add trial configuration for managed monthly
     if (trialConfig.hasTrial && sessionParams.mode === 'subscription') {
       // For $1 trial: Create subscription with trial, add $1 invoice item
-      sessionParams.subscription_data = {
-        trial_period_days: trialConfig.trialPeriodDays,
-        metadata: {
-          extension_user_id: extensionUserId,
-          has_trial: 'true'
-        }
-      };
+      sessionParams.subscription_data.trial_period_days = trialConfig.trialPeriodDays;
+      sessionParams.subscription_data.metadata.has_trial = 'true';
 
       // Add $1 trial fee as invoice item
       sessionParams.invoice_creation = {
