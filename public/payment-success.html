@@ -124,11 +124,10 @@
       <p id="status">Activating your subscription...</p>
     </div>
 
-    <p style="font-size: 0.9rem; color: #9ca3af;">
-      You will be redirected to the extension shortly.<br>
-      If you're not redirected automatically, click below:
+    <p style="font-size: 0.9rem; color: #9ca3af; margin-bottom: 15px;">
+      Click the button below to return to your extension:
     </p>
-    <a href="#" id="manualLink" class="manual-link" style="display: none;">Open Extension</a>
+    <a href="#" id="manualLink" class="manual-link">Return to Extension</a>
   </div>
 
   <script>
@@ -142,30 +141,21 @@
     console.log('Session ID:', sessionId);
     console.log('Extension ID:', extensionId);
 
-    // If payment is successful, redirect immediately
-    if (sessionId && extensionId) {
-      // Wait 2 seconds, then redirect to extension
+    // Setup the extension link
+    if (extensionId) {
+      const extensionUrl = `chrome-extension://${extensionId}/popup.html`;
+      const manualLink = document.getElementById('manualLink');
+      manualLink.href = extensionUrl;
+
+      // Hide spinner after 2 seconds and update status
       setTimeout(() => {
-        const extensionUrl = `chrome-extension://${extensionId}/popup.html`;
-        console.log('Redirecting to:', extensionUrl);
-
-        // Update status
-        document.getElementById('status').textContent = 'Payment confirmed! Redirecting to extension...';
-
-        // Show manual link
-        const manualLink = document.getElementById('manualLink');
-        manualLink.href = extensionUrl;
-        manualLink.style.display = 'inline-block';
-
-        // Try automatic redirect
-        setTimeout(() => {
-          console.log('Attempting redirect...');
-          window.location.href = extensionUrl;
-        }, 1500);
+        const spinner = document.querySelector('.spinner');
+        if (spinner) spinner.style.display = 'none';
+        document.getElementById('status').textContent = '✅ Payment confirmed! Your subscription is now active.';
       }, 2000);
     } else {
       document.getElementById('status').textContent = 'Payment successful! Please close this tab and open your extension.';
-      console.error('Missing session_id or ext_id in URL');
+      console.error('Missing ext_id in URL');
     }
   </script>
 </body>
