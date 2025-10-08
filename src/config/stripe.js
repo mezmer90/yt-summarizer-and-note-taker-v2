@@ -5,6 +5,9 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Stripe Price IDs (Customer Portal - Separate Products)
 const STRIPE_PRICES = {
+  // Free Plan
+  free_plan: process.env.STRIPE_PRICE_FREE_PLAN || 'price_1SFtGuSEC06Y8mAjEPUHZIkd',
+
   // BYOK Prices
   byok_premium_yearly: process.env.STRIPE_PRICE_BYOK_PREMIUM || 'price_1SFqZbSEC06Y8mAj7VrCPBaZ',
   byok_unlimited_yearly: process.env.STRIPE_PRICE_BYOK_UNLIMITED || 'price_1SFqaFSEC06Y8mAjeMdV3v9X',
@@ -23,6 +26,7 @@ const STRIPE_PRICES = {
 
 // Price to tier mapping (for updating user tier after payment)
 const PRICE_TO_TIER = {
+  [STRIPE_PRICES.free_plan]: 'free',
   [STRIPE_PRICES.byok_premium_yearly]: 'premium',
   [STRIPE_PRICES.byok_unlimited_yearly]: 'unlimited',
   [STRIPE_PRICES.byok_lifetime]: 'unlimited',
@@ -36,6 +40,7 @@ const PRICE_TO_TIER = {
 
 // Price to plan name mapping (for user table)
 const PRICE_TO_PLAN_NAME = {
+  [STRIPE_PRICES.free_plan]: 'Free Plan',
   [STRIPE_PRICES.byok_premium_yearly]: 'Premium - BYOK (Annual)',
   [STRIPE_PRICES.byok_unlimited_yearly]: 'Unlimited - BYOK (Annual)',
   [STRIPE_PRICES.byok_lifetime]: 'Lifetime - BYOK',
