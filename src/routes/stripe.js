@@ -830,12 +830,19 @@ router.post('/cancel-subscription', async (req, res) => {
 // ENDPOINT 4: Get Subscription Status
 // ============================================
 router.get('/subscription-status/:extensionUserId', async (req, res) => {
+  // IMPORTANT: Disable caching to always fetch fresh subscription data from Stripe
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
+
   try {
     const { extensionUserId } = req.params;
 
     const result = await pool.query(
       `SELECT
-        tier, plan_name, subscription_status,
+        extension_user_id, email, tier, plan_name, subscription_status,
         stripe_subscription_id, stripe_price_id, stripe_customer_id,
         subscription_start_date, subscription_end_date,
         subscription_cancel_at, trial_end_date
@@ -853,13 +860,40 @@ router.get('/subscription-status/:extensionUserId', async (req, res) => {
     }
 
     const user = result.rows[0];
+    let customerId = user.stripe_customer_id;
+
+    // If we have an email, search for the LATEST customer in Stripe by email
+    if (user.email) {
+      try {
+        const customers = await stripe.customers.list({
+          email: user.email,
+          limit: 1
+        });
+
+        if (customers.data.length > 0) {
+          const latestCustomer = customers.data[0];
+          customerId = latestCustomer.id;
+
+          // Update database if customer ID changed (user was deleted and recreated in Stripe)
+          if (user.stripe_customer_id !== customerId) {
+            await pool.query(
+              `UPDATE users SET stripe_customer_id = $1, updated_at = NOW() WHERE extension_user_id = $2`,
+              [customerId, extensionUserId]
+            );
+            console.log(`✅ Updated customer ID for ${user.email}: ${customerId}`);
+          }
+        }
+      } catch (customerError) {
+        console.error('Error fetching customer by email:', customerError);
+      }
+    }
 
     // If they have a customer ID, fetch ALL active subscriptions from Stripe
-    if (user.stripe_customer_id) {
+    if (customerId) {
       try {
         // List all subscriptions for this customer
         const subscriptions = await stripe.subscriptions.list({
-          customer: user.stripe_customer_id,
+          customer: customerId,
           status: 'active',
           limit: 10
         });
@@ -876,13 +910,13 @@ router.get('/subscription-status/:extensionUserId', async (req, res) => {
           const planName = PRICE_TO_PLAN_NAME[priceId] || user.plan_name;
 
           // Update database if it's out of sync
-          if (user.stripe_subscription_id !== activeSubscription.id || user.tier !== tier) {
+          if (user.stripe_subscription_id !== activeSubscription.id || user.tier !== tier || user.stripe_customer_id !== customerId) {
             await pool.query(
               `UPDATE users
                SET stripe_subscription_id = $1, stripe_price_id = $2, tier = $3, plan_name = $4,
-                   subscription_status = $5, updated_at = NOW()
-               WHERE extension_user_id = $6`,
-              [activeSubscription.id, priceId, tier, planName, activeSubscription.status, extensionUserId]
+                   subscription_status = $5, stripe_customer_id = $6, updated_at = NOW()
+               WHERE extension_user_id = $7`,
+              [activeSubscription.id, priceId, tier, planName, activeSubscription.status, customerId, extensionUserId]
             );
             console.log(`✅ Synced database for user ${extensionUserId}: ${planName}`);
           }
