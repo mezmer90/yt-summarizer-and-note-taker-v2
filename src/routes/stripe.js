@@ -599,6 +599,69 @@ router.post('/create-checkout', async (req, res) => {
 });
 
 // ============================================
+// ENDPOINT: Preview Subscription Change (get proration amount)
+// ============================================
+router.post('/preview-subscription-change', async (req, res) => {
+  try {
+    const { extensionUserId, newPriceId } = req.body;
+
+    if (!extensionUserId || !newPriceId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields'
+      });
+    }
+
+    // Get user's current subscription
+    const userResult = await pool.query(
+      'SELECT stripe_subscription_id, stripe_customer_id FROM users WHERE extension_user_id = $1',
+      [extensionUserId]
+    );
+
+    if (userResult.rows.length === 0 || !userResult.rows[0].stripe_subscription_id) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active subscription found'
+      });
+    }
+
+    const subscriptionId = userResult.rows[0].stripe_subscription_id;
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    // Preview the upcoming invoice with the new price
+    const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+      customer: userResult.rows[0].stripe_customer_id,
+      subscription: subscriptionId,
+      subscription_items: [
+        {
+          id: subscription.items.data[0].id,
+          price: newPriceId
+        }
+      ],
+      subscription_proration_behavior: 'create_prorations'
+    });
+
+    // Calculate immediate charge (prorated amount)
+    const immediateCharge = upcomingInvoice.amount_due;
+    const currency = upcomingInvoice.currency;
+
+    res.json({
+      success: true,
+      immediateCharge: immediateCharge / 100, // Convert from cents to dollars
+      currency: currency.toUpperCase(),
+      formattedAmount: `${currency.toUpperCase()} $${(immediateCharge / 100).toFixed(2)}`
+    });
+
+  } catch (error) {
+    console.error('Preview subscription change error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================
 // ENDPOINT 2: Change Subscription
 // ============================================
 router.post('/change-subscription', async (req, res) => {
@@ -643,8 +706,6 @@ router.post('/change-subscription', async (req, res) => {
     }
 
     const subscriptionId = userResult.rows[0].stripe_subscription_id;
-
-    // Retrieve the subscription from Stripe
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
     // Update subscription with new price (with proration)
@@ -655,7 +716,7 @@ router.post('/change-subscription', async (req, res) => {
           price: newPriceId
         }
       ],
-      proration_behavior: 'create_prorations', // Enable proration
+      proration_behavior: 'create_prorations',
       metadata: {
         extension_user_id: extensionUserId,
         changed_at: new Date().toISOString()
