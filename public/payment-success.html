@@ -124,10 +124,15 @@
       <p id="status">Activating your subscription...</p>
     </div>
 
-    <p style="font-size: 0.9rem; color: #9ca3af; margin-bottom: 15px;">
-      Click the button below to return to your extension:
+    <div id="planDetails" style="display: none; margin-top: 20px; padding: 20px; background: #f9fafb; border-radius: 12px; border-left: 4px solid #10b981;">
+      <p style="font-size: 0.9rem; color: #6b7280; margin-bottom: 8px;">Your Subscription:</p>
+      <p id="planName" style="font-size: 1.3rem; color: #10b981; font-weight: 700; margin: 0;"></p>
+    </div>
+
+    <p id="closeMessage" style="display: none; font-size: 1.05rem; color: #374151; margin-top: 25px; line-height: 1.8;">
+      Your payment is complete! 🎉<br>
+      <span style="font-weight: 600;">You can close this tab</span> and return to your extension.
     </p>
-    <a href="#" id="manualLink" class="manual-link">Return to Extension</a>
   </div>
 
   <script>
@@ -141,24 +146,60 @@
     console.log('Session ID:', sessionId);
     console.log('Extension ID:', extensionId);
 
-    // Hide spinner and show success message immediately
-    const spinner = document.querySelector('.spinner');
-    if (spinner) spinner.style.display = 'none';
+    async function loadSubscriptionDetails() {
+      try {
+        // Check session to get extension user ID
+        const sessionResponse = await fetch(`/api/stripe/check-session/${sessionId}`);
+        const sessionData = await sessionResponse.json();
 
-    // Setup the extension link
-    if (extensionId) {
-      const extensionUrl = `chrome-extension://${extensionId}/popup.html`;
-      const manualLink = document.getElementById('manualLink');
-      manualLink.href = extensionUrl;
+        if (sessionData.success && sessionData.extensionUserId) {
+          // Fetch subscription details
+          const subResponse = await fetch(`/api/stripe/subscription-status/${sessionData.extensionUserId}`);
+          const subData = await subResponse.json();
 
-      // Update status immediately
-      document.getElementById('status').textContent = '✅ Payment confirmed! Your subscription is now active.';
-      document.getElementById('status').style.fontSize = '1.2rem';
-      document.getElementById('status').style.fontWeight = '600';
-      document.getElementById('status').style.color = '#10b981';
+          // Hide spinner and initial status
+          const spinner = document.querySelector('.spinner');
+          const redirectInfo = document.querySelector('.redirect-info');
+          if (spinner) spinner.style.display = 'none';
+          if (redirectInfo) redirectInfo.style.display = 'none';
+
+          // Show plan details
+          if (subData.success && subData.planName) {
+            document.getElementById('planName').textContent = subData.planName;
+            document.getElementById('planDetails').style.display = 'block';
+          }
+
+          // Show close message
+          document.getElementById('closeMessage').style.display = 'block';
+
+        } else {
+          throw new Error('Could not retrieve subscription details');
+        }
+      } catch (error) {
+        console.error('Error loading subscription:', error);
+
+        // Fallback: just show generic success message
+        const spinner = document.querySelector('.spinner');
+        if (spinner) spinner.style.display = 'none';
+
+        document.getElementById('status').textContent = '✅ Payment confirmed! Your subscription is now active.';
+        document.getElementById('status').style.fontSize = '1.2rem';
+        document.getElementById('status').style.fontWeight = '600';
+        document.getElementById('status').style.color = '#10b981';
+
+        document.getElementById('closeMessage').style.display = 'block';
+      }
+    }
+
+    // Load subscription details
+    if (sessionId && extensionId) {
+      loadSubscriptionDetails();
     } else {
+      // Fallback if missing parameters
+      const spinner = document.querySelector('.spinner');
+      if (spinner) spinner.style.display = 'none';
       document.getElementById('status').textContent = 'Payment successful! Please close this tab and open your extension.';
-      console.error('Missing ext_id in URL');
+      document.getElementById('closeMessage').style.display = 'block';
     }
   </script>
 </body>
