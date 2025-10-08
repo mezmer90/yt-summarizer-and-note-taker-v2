@@ -263,6 +263,32 @@ router.post('/verify-code', async (req, res) => {
 });
 
 // ============================================
+// PRICE IDs ENDPOINT (for frontend)
+// ============================================
+router.get('/price-ids', async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      prices: {
+        free_plan: STRIPE_PRICES.free_plan,
+        byok_premium_yearly: STRIPE_PRICES.byok_premium_yearly,
+        byok_unlimited_yearly: STRIPE_PRICES.byok_unlimited_yearly,
+        byok_lifetime: STRIPE_PRICES.byok_lifetime,
+        managed_monthly: STRIPE_PRICES.managed_monthly,
+        managed_annual: STRIPE_PRICES.managed_annual,
+        student_premium_byok: STRIPE_PRICES.student_premium_byok,
+        student_unlimited_byok: STRIPE_PRICES.student_unlimited_byok,
+        student_monthly_managed: STRIPE_PRICES.student_monthly_managed,
+        student_annual_managed: STRIPE_PRICES.student_annual_managed
+      }
+    });
+  } catch (error) {
+    console.error('Get price IDs error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
 // LOGIN ENDPOINTS (for existing customers)
 // ============================================
 
