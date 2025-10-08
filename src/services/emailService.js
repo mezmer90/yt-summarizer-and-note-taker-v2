@@ -1,9 +1,29 @@
 // Email Service
 const transporter = require('../config/email');
+const { Resend } = require('resend');
+
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendEmail = async ({ to, subject, html, text }) => {
   try {
-    // Check if transporter is the stub (email service disabled)
+    // Use Resend if API key is configured
+    if (process.env.RESEND_API_KEY) {
+      const fromEmail = process.env.FROM_EMAIL || 'noreply@aifreedomclub.com';
+
+      const result = await resend.emails.send({
+        from: fromEmail,
+        to,
+        subject,
+        html,
+        text: text || html.replace(/<[^>]*>/g, '')
+      });
+
+      console.log('✅ Email sent via Resend:', result.id);
+      return { success: true, messageId: result.id };
+    }
+
+    // Fallback to SMTP if Resend not configured
     if (!transporter || !transporter.sendMail || typeof transporter.sendMail !== 'function') {
       console.error('❌ Email service not available - nodemailer not loaded');
       return {
@@ -234,11 +254,65 @@ const sendStudentApprovalEmail = async (email, expiresAt) => {
   return sendEmail({ to: email, subject, html });
 };
 
+// Generate 6-digit verification code
+const generateVerificationCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Send email verification code
+const sendEmailVerificationCode = async (email, verificationCode) => {
+  const subject = `Your Verification Code: ${verificationCode}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0;">🎬 YouTube Summarizer Pro</h1>
+        <p style="margin: 10px 0 0 0;">Verify Your Email</p>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <h2>Welcome!</h2>
+        <p>Thanks for signing up for YouTube Summarizer Pro. To activate your Free Plan, please verify your email address.</p>
+
+        <div style="background: white; border: 3px solid #667eea; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
+          <p style="margin: 0; font-size: 14px; color: #666;">Your verification code is:</p>
+          <div style="font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px; margin-top: 10px;">${verificationCode}</div>
+        </div>
+
+        <p><strong>This code will expire in 10 minutes.</strong></p>
+
+        <p>If you didn't request this code, you can safely ignore this email.</p>
+
+        <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
+          <p>YouTube Summarizer Pro - AI-Powered Video Summaries</p>
+          <p style="font-size: 12px;">This is an automated email, please do not reply.</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const text = `
+YouTube Summarizer Pro - Email Verification
+
+Your verification code is: ${verificationCode}
+
+This code will expire in 10 minutes.
+
+If you didn't request this code, you can safely ignore this email.
+
+---
+YouTube Summarizer Pro - AI-Powered Video Summaries
+  `;
+
+  return sendEmail({ to: email, subject, html, text });
+};
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendUpgradeEmail,
   sendUsageLimitEmail,
   sendStudentVerificationEmail,
-  sendStudentApprovalEmail
+  sendStudentApprovalEmail,
+  generateVerificationCode,
+  sendEmailVerificationCode
 };

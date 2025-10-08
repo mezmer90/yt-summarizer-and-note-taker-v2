@@ -16,34 +16,166 @@ const {
   getTrialConfig
 } = require('../config/stripe');
 
+const {
+  generateVerificationCode,
+  sendEmailVerificationCode
+} = require('../services/emailService');
+
 // ============================================
-// ENDPOINT 1: Register User (Subscribe to Free Plan)
+// ENDPOINT 1: Send Verification Code
 // ============================================
-router.post('/register', async (req, res) => {
+router.post('/send-verification-code', async (req, res) => {
   try {
     const { extensionUserId, email } = req.body;
 
-    if (!extensionUserId) {
+    if (!extensionUserId || !email) {
       return res.status(400).json({
         success: false,
-        error: 'Extension user ID is required'
+        error: 'Extension user ID and email are required'
       });
     }
 
-    // Check if user already exists
+    // Validate email format
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format'
+      });
+    }
+
+    // Check if user already has a subscription
     const existingUser = await pool.query(
-      'SELECT id, stripe_customer_id, stripe_subscription_id FROM users WHERE extension_user_id = $1',
+      'SELECT id, stripe_subscription_id FROM users WHERE extension_user_id = $1',
       [extensionUserId]
     );
 
     if (existingUser.rows.length > 0 && existingUser.rows[0].stripe_subscription_id) {
-      // User already has a subscription
       return res.json({
         success: true,
         message: 'User already registered',
         alreadyRegistered: true
       });
     }
+
+    // Generate 6-digit code
+    const verificationCode = generateVerificationCode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Delete any existing verification for this user
+    await pool.query(
+      'DELETE FROM email_verifications WHERE extension_user_id = $1',
+      [extensionUserId]
+    );
+
+    // Store verification code
+    await pool.query(
+      `INSERT INTO email_verifications (extension_user_id, email, verification_code, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [extensionUserId, email, verificationCode, expiresAt]
+    );
+
+    // Send email
+    const emailResult = await sendEmailVerificationCode(email, verificationCode);
+
+    if (!emailResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send verification email. Please try again.'
+      });
+    }
+
+    console.log(`✅ Verification code sent to ${email}: ${verificationCode}`);
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to your email',
+      expiresIn: 600 // 10 minutes in seconds
+    });
+
+  } catch (error) {
+    console.error('Send verification code error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================
+// ENDPOINT 2: Verify Code and Register
+// ============================================
+router.post('/verify-code', async (req, res) => {
+  try {
+    const { extensionUserId, code } = req.body;
+
+    if (!extensionUserId || !code) {
+      return res.status(400).json({
+        success: false,
+        error: 'Extension user ID and verification code are required'
+      });
+    }
+
+    // Get verification record
+    const verification = await pool.query(
+      `SELECT * FROM email_verifications
+       WHERE extension_user_id = $1 AND verified = FALSE`,
+      [extensionUserId]
+    );
+
+    if (verification.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No verification request found. Please request a new code.'
+      });
+    }
+
+    const record = verification.rows[0];
+
+    // Check if expired
+    if (new Date() > new Date(record.expires_at)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Verification code expired. Please request a new code.'
+      });
+    }
+
+    // Check attempts
+    if (record.attempts >= 5) {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many failed attempts. Please request a new code.'
+      });
+    }
+
+    // Verify code
+    if (record.verification_code !== code) {
+      // Increment attempts
+      await pool.query(
+        'UPDATE email_verifications SET attempts = attempts + 1 WHERE id = $1',
+        [record.id]
+      );
+
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid verification code. Please try again.',
+        attemptsLeft: 5 - (record.attempts + 1)
+      });
+    }
+
+    // Code is correct! Mark as verified
+    await pool.query(
+      'UPDATE email_verifications SET verified = TRUE WHERE id = $1',
+      [record.id]
+    );
+
+    // Now create the Free Plan subscription
+    const email = record.email;
+
+    // Check if user already exists
+    const existingUser = await pool.query(
+      'SELECT id, stripe_customer_id FROM users WHERE extension_user_id = $1',
+      [extensionUserId]
+    );
 
     let customerId = existingUser.rows[0]?.stripe_customer_id;
 
@@ -83,7 +215,7 @@ router.post('/register', async (req, res) => {
              plan_name = 'Free Plan',
              subscription_status = $4,
              subscription_start_date = NOW(),
-             email = COALESCE($5, email),
+             email = $5,
              updated_at = NOW()
          WHERE extension_user_id = $6`,
         [customerId, subscription.id, STRIPE_PRICES.free_plan, subscription.status, email, extensionUserId]
@@ -99,11 +231,11 @@ router.post('/register', async (req, res) => {
       );
     }
 
-    console.log(`✅ User registered with Free Plan: ${extensionUserId}`);
+    console.log(`✅ User registered with Free Plan after verification: ${extensionUserId}`);
 
     res.json({
       success: true,
-      message: 'Successfully registered with Free Plan',
+      message: 'Email verified! Free Plan activated.',
       subscription: {
         id: subscription.id,
         status: subscription.status
@@ -111,7 +243,7 @@ router.post('/register', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('User registration error:', error);
+    console.error('Verification error:', error);
     res.status(500).json({
       success: false,
       error: error.message
