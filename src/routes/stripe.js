@@ -629,7 +629,7 @@ router.post('/preview-subscription-change', async (req, res) => {
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
     // Preview the upcoming invoice with the new price
-    const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+    const upcomingInvoice = await stripe.invoices.upcoming({
       customer: userResult.rows[0].stripe_customer_id,
       subscription: subscriptionId,
       subscription_items: [
