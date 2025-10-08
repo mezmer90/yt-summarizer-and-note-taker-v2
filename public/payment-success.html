@@ -141,18 +141,21 @@
     console.log('Session ID:', sessionId);
     console.log('Extension ID:', extensionId);
 
+    // Hide spinner and show success message immediately
+    const spinner = document.querySelector('.spinner');
+    if (spinner) spinner.style.display = 'none';
+
     // Setup the extension link
     if (extensionId) {
       const extensionUrl = `chrome-extension://${extensionId}/popup.html`;
       const manualLink = document.getElementById('manualLink');
       manualLink.href = extensionUrl;
 
-      // Hide spinner after 2 seconds and update status
-      setTimeout(() => {
-        const spinner = document.querySelector('.spinner');
-        if (spinner) spinner.style.display = 'none';
-        document.getElementById('status').textContent = '✅ Payment confirmed! Your subscription is now active.';
-      }, 2000);
+      // Update status immediately
+      document.getElementById('status').textContent = '✅ Payment confirmed! Your subscription is now active.';
+      document.getElementById('status').style.fontSize = '1.2rem';
+      document.getElementById('status').style.fontWeight = '600';
+      document.getElementById('status').style.color = '#10b981';
     } else {
       document.getElementById('status').textContent = 'Payment successful! Please close this tab and open your extension.';
       console.error('Missing ext_id in URL');
