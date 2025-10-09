@@ -119,8 +119,8 @@ async function runAutoAIVerification(verificationId) {
 
     const verification = verificationData.rows[0];
 
-    if (!verification.student_id_front_url || !verification.student_id_back_url) {
-      throw new Error('Missing ID images');
+    if (!verification.student_id_front_url) {
+      throw new Error('Missing ID image');
     }
 
     // Update status to processing
@@ -185,12 +185,6 @@ async function runAutoAIVerification(verificationId) {
               type: 'image_url',
               image_url: {
                 url: verification.student_id_front_url
-              }
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: verification.student_id_back_url
               }
             }
           ]
@@ -546,10 +540,10 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    if (!student_id_front_url || !student_id_back_url) {
+    if (!student_id_front_url) {
       return res.status(400).json({
         success: false,
-        message: 'Both front and back images of student ID are required'
+        message: 'Student ID image is required'
       });
     }
 
@@ -612,7 +606,7 @@ router.post('/verify', async (req, res) => {
     // Send response immediately
     res.json({
       success: true,
-      message: 'Student verification submitted successfully! We are verifying your ID automatically. You will receive an email notification shortly.',
+      message: 'Student verification submitted successfully! An admin will review your request within 24 hours. You will receive an email notification once approved.',
       verification: {
         id: verificationId,
         email: result.rows[0].email,
@@ -620,11 +614,11 @@ router.post('/verify', async (req, res) => {
       }
     });
 
-    // Run AI verification asynchronously (don't wait for it)
-    console.log(`🤖 Triggering automatic AI verification for ID ${verificationId}`);
-    runAutoAIVerification(verificationId).catch(err => {
-      console.error(`❌ Auto AI verification failed for ID ${verificationId}:`, err);
-    });
+    // AI verification disabled for launch - will be enabled later
+    // console.log(`🤖 Triggering automatic AI verification for ID ${verificationId}`);
+    // runAutoAIVerification(verificationId).catch(err => {
+    //   console.error(`❌ Auto AI verification failed for ID ${verificationId}:`, err);
+    // });
 
   } catch (error) {
     console.error('Error submitting student verification:', error);
@@ -1138,10 +1132,10 @@ router.post('/admin/ai-verify/:id', requireAdmin, async (req, res) => {
 
     const verification = verificationData.rows[0];
 
-    if (!verification.student_id_front_url || !verification.student_id_back_url) {
+    if (!verification.student_id_front_url) {
       return res.status(400).json({
         success: false,
-        message: 'Both front and back ID images are required for AI verification'
+        message: 'Student ID image is required for AI verification'
       });
     }
 
@@ -1216,12 +1210,6 @@ router.post('/admin/ai-verify/:id', requireAdmin, async (req, res) => {
               type: 'image_url',
               image_url: {
                 url: verification.student_id_front_url
-              }
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: verification.student_id_back_url
               }
             }
           ]
