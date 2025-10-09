@@ -426,8 +426,19 @@ async function loadSettings() {
 // Update setting
 async function updateSetting(key) {
   const inputEl = document.getElementById(`setting-${key}`);
+
+  if (!inputEl) {
+    console.error(`❌ Input element not found for setting: ${key}`);
+    alert(`❌ Error: Could not find input field for ${key}`);
+    return;
+  }
+
   const value = inputEl.value;
   const isDropdown = inputEl.tagName === 'SELECT';
+
+  console.log(`🔵 Updating setting: ${key}`);
+  console.log(`   Value: ${value ? '(set)' : '(empty)'}`);
+  console.log(`   Input type: ${inputEl.tagName}`);
 
   try {
     const response = await fetch(`${API_BASE}/admin/settings/${key}`, {
@@ -439,18 +450,29 @@ async function updateSetting(key) {
       body: JSON.stringify({ value })
     });
 
-    if (!response.ok) throw new Error('Failed to update setting');
+    console.log(`   Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error(`❌ Server error:`, errorData);
+      throw new Error(errorData.error || `HTTP ${response.status}: Failed to update setting`);
+    }
+
+    const data = await response.json();
+    console.log(`✅ Setting updated successfully:`, data);
 
     // Show success message
     if (isDropdown) {
       console.log(`✅ ${key} updated to: ${value}`);
       // Auto-save for dropdowns, no alert needed
     } else {
-      alert(`✅ Setting updated!`);
+      alert(`✅ Setting "${key}" updated successfully!`);
+      // Reload settings to show updated value
+      await loadSettings();
     }
   } catch (error) {
-    alert('❌ Failed to update setting');
-    console.error(error);
+    console.error(`❌ Error updating setting "${key}":`, error);
+    alert(`❌ Failed to update setting: ${error.message}`);
   }
 }
 
