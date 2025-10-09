@@ -16,6 +16,7 @@ const app = require('./src/app');
 const { pool } = require('./src/config/database');
 const fs = require('fs');
 const path = require('path');
+const { initializeAdminUser } = require('./src/scripts/initAdmin');
 
 // Update database views on startup
 async function updateDatabaseViews() {
@@ -32,12 +33,18 @@ async function updateDatabaseViews() {
   }
 }
 
+// Initialize database and admin user on startup
+async function initializeServer() {
+  await updateDatabaseViews();
+  await initializeAdminUser();
+}
+
 // Use Railway's assigned PORT or fallback to 3000
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-// Update views on startup
-updateDatabaseViews();
+// Run initialization
+initializeServer();
 
 let isShuttingDown = false;
 

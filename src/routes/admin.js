@@ -11,7 +11,12 @@ const {
   updateSystemSetting,
   getAdminLogs,
   getUsageAnalytics,
-  createFirstAdmin
+  createFirstAdmin,
+  getAllAdmins,
+  createAdmin,
+  updateAdmin,
+  requestPasswordReset,
+  resetPassword
 } = require('../controllers/adminController');
 const {
   getAllModels,
@@ -23,6 +28,8 @@ const { sendEmail } = require('../services/emailService');
 // Public routes
 router.post('/admin/login', loginLimiter, adminLogin);
 router.post('/admin/setup', createFirstAdmin); // Only works if no admins exist
+router.post('/admin/request-password-reset', loginLimiter, requestPasswordReset);
+router.post('/admin/reset-password', loginLimiter, resetPassword);
 
 // Protected routes (require admin authentication)
 router.get('/admin/stats', requireAdmin, getDashboardStats);
@@ -36,6 +43,11 @@ router.get('/admin/analytics', requireAdmin, getUsageAnalytics);
 router.get('/admin/models', requireAdmin, getAllModels);
 router.get('/admin/models/:tier', requireAdmin, getModelByTier);
 router.put('/admin/models/:tier', requireAdmin, updateModelForTier);
+
+// Admin user management routes
+router.get('/admin/admins', requireAdmin, getAllAdmins);
+router.post('/admin/admins', requireAdmin, createAdmin);
+router.put('/admin/admins/:id', requireAdmin, updateAdmin);
 
 // Test email endpoint
 router.post('/admin/test-email', requireAdmin, async (req, res) => {
