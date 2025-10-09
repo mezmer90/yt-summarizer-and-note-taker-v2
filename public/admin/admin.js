@@ -574,6 +574,8 @@ function renderStudentVerifications(verifications) {
                 <span style="color: red;">✗ Rejected</span>
                 <br><small>${v.rejection_reason}</small>
                 <br>
+                <button class="btn-approve" data-student-id="${v.id}" style="margin-top: 5px;">✓ Approve Anyway</button>
+                <br>
               `}
               ${v.student_id_front_url ? `<button class="btn-view-image" data-image-url="${v.student_id_front_url}" data-title="Student ID - Front">View ID Front</button>` : ''}
               ${v.student_id_back_url ? `<button class="btn-view-image" data-image-url="${v.student_id_back_url}" data-title="Student ID - Back">View ID Back</button>` : ''}
