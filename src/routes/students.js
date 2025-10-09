@@ -409,9 +409,17 @@ router.post('/send-otp', async (req, res) => {
       </div>
     `;
 
-    await sendEmail({ to: email, subject, html });
+    console.log(`📧 Calling sendEmail for OTP to ${email}...`);
+    const emailResult = await sendEmail({ to: email, subject, html });
 
-    console.log(`✅ OTP sent to ${email}: ${otp}`);
+    console.log(`📧 Email result:`, emailResult);
+
+    if (!emailResult.success) {
+      console.error(`❌ Failed to send OTP email to ${email}:`, emailResult.error);
+      throw new Error(`Email sending failed: ${emailResult.error}`);
+    }
+
+    console.log(`✅ OTP sent to ${email}: ${otp} (Message ID: ${emailResult.messageId})`);
 
     res.json({
       success: true,
@@ -420,10 +428,13 @@ router.post('/send-otp', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending OTP:', error);
+    console.error('❌ Error sending OTP:', error);
+    console.error('   Error details:', error.message);
+    console.error('   Stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Failed to send OTP. Please try again.'
+      message: 'Failed to send OTP. Please try again.',
+      error: error.message
     });
   }
 });

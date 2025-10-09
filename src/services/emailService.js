@@ -15,16 +15,24 @@ const sendEmail = async ({ to, subject, html, text }) => {
       const fromEmail = process.env.FROM_EMAIL || 'noreply@aifreedomclub.com';
       console.log('   Using Resend with FROM_EMAIL:', fromEmail);
 
-      const result = await resend.emails.send({
-        from: fromEmail,
-        to,
-        subject,
-        html,
-        text: text || html.replace(/<[^>]*>/g, '')
-      });
+      try {
+        const result = await resend.emails.send({
+          from: fromEmail,
+          to,
+          subject,
+          html,
+          text: text || html.replace(/<[^>]*>/g, '')
+        });
 
-      console.log('✅ Email sent via Resend successfully! Message ID:', result.id);
-      return { success: true, messageId: result.id };
+        console.log('✅ Email sent via Resend successfully! Message ID:', result.id);
+        return { success: true, messageId: result.id };
+      } catch (resendError) {
+        console.error('❌ Resend API error:', resendError);
+        console.error('   Error name:', resendError.name);
+        console.error('   Error message:', resendError.message);
+        console.error('   Error details:', JSON.stringify(resendError, null, 2));
+        return { success: false, error: `Resend API error: ${resendError.message}` };
+      }
     }
 
     console.warn('⚠️  RESEND_API_KEY not configured, attempting SMTP fallback');
