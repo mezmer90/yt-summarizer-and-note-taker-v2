@@ -674,9 +674,10 @@ router.get('/status/:extension_user_id', async (req, res) => {
 
     const verified = user.student_verified && !isExpired;
 
-    // Also get latest verification request details
+    // Also get latest verification request details with AI info
     const verificationResult = await pool.query(
-      `SELECT id, status, requested_at, reviewed_at, rejection_reason, expires_at
+      `SELECT id, status, requested_at, reviewed_at, rejection_reason, expires_at,
+              ai_status, ai_reason, ai_confidence
        FROM student_verifications
        WHERE extension_user_id = $1 OR email = $2
        ORDER BY requested_at DESC
@@ -694,10 +695,15 @@ router.get('/status/:extension_user_id', async (req, res) => {
       days_remaining: daysRemaining,
       needs_reverification: isExpired,
       latest_request: verificationRequest ? {
+        id: verificationRequest.id,
         status: verificationRequest.status,
         requested_at: verificationRequest.requested_at,
         reviewed_at: verificationRequest.reviewed_at,
-        rejection_reason: verificationRequest.rejection_reason
+        rejection_reason: verificationRequest.rejection_reason,
+        ai_status: verificationRequest.ai_status,
+        ai_reason: verificationRequest.ai_reason,
+        ai_confidence: verificationRequest.ai_confidence,
+        can_reupload: verificationRequest.status === 'rejected' || (verificationRequest.ai_status && verificationRequest.ai_status.startsWith('reupload'))
       } : null
     });
 
@@ -706,6 +712,43 @@ router.get('/status/:extension_user_id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to check verification status'
+    });
+  }
+});
+
+// Delete rejected verification (allows student to reupload)
+router.delete('/delete-rejected/:extension_user_id', async (req, res) => {
+  try {
+    const { extension_user_id } = req.params;
+
+    // Only allow deletion of rejected verifications
+    const result = await pool.query(
+      `DELETE FROM student_verifications
+       WHERE extension_user_id = $1
+       AND status = 'rejected'
+       RETURNING *`,
+      [extension_user_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No rejected verification found to delete'
+      });
+    }
+
+    console.log(`✅ Deleted rejected verification for ${extension_user_id}`);
+
+    res.json({
+      success: true,
+      message: 'Rejected verification deleted. You can now submit a new verification.'
+    });
+
+  } catch (error) {
+    console.error('Error deleting rejected verification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete rejected verification'
     });
   }
 });
