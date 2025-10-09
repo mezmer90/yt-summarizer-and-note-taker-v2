@@ -972,6 +972,21 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
       });
     }
 
+    const verificationData = verification.rows[0];
+
+    // Reset user's student verification status in users table
+    await pool.query(
+      `UPDATE users
+       SET student_verified = false,
+           student_verified_at = NULL,
+           student_verification_expires_at = NULL,
+           updated_at = NOW()
+       WHERE extension_user_id = $1 OR email = $2`,
+      [verificationData.extension_user_id, verificationData.email]
+    );
+
+    console.log(`✅ Reset student verification status for user: ${verificationData.extension_user_id}`);
+
     // Delete the verification
     await pool.query(
       'DELETE FROM student_verifications WHERE id = $1',
@@ -982,12 +997,12 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
     await pool.query(
       `INSERT INTO admin_actions (admin_email, action, target_entity, target_id, details)
        VALUES ($1, $2, $3, $4, $5)`,
-      [adminEmail, 'delete_student_verification', 'student_verifications', id, JSON.stringify(verification.rows[0])]
+      [adminEmail, 'delete_student_verification', 'student_verifications', id, JSON.stringify(verificationData)]
     );
 
     res.json({
       success: true,
-      message: 'Student verification deleted'
+      message: 'Student verification deleted and user status reset'
     });
 
   } catch (error) {

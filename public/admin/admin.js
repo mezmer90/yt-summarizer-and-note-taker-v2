@@ -657,7 +657,7 @@ async function rejectStudent(id) {
 
 // Delete student verification
 async function deleteStudent(id) {
-  if (!confirm('⚠️ Are you sure you want to DELETE this student verification?\n\nThis action cannot be undone!\n\nUse this for testing or to remove duplicate/spam entries.')) {
+  if (!confirm('⚠️ Are you sure you want to DELETE this student verification?\n\nThis will reset the user\'s verification status.\n\nThis action cannot be undone!')) {
     return;
   }
 
@@ -671,8 +671,14 @@ async function deleteStudent(id) {
 
     if (!response.ok) throw new Error(data.message);
 
-    alert('🗑️ Student verification deleted successfully');
-    loadStudentVerifications(currentStudentFilter);
+    alert('🗑️ Student verification deleted and user status reset');
+
+    // Reload student verifications, users, and stats to reflect the change
+    await Promise.all([
+      loadStudentVerifications(currentStudentFilter),
+      loadUsers(),
+      loadStats()
+    ]);
   } catch (error) {
     console.error('Error deleting verification:', error);
     alert('Error: ' + error.message);
