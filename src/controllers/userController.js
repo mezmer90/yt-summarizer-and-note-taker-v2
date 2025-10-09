@@ -110,14 +110,17 @@ const getUserModel = async (req, res) => {
         tier: user.tier,
         planName: user.plan_name
       },
-      model: {
+      modelConfig: {
         modelId: user.model_id,
         modelName: user.model_name,
-        maxOutputTokens: user.max_output_tokens,
-        costPer1MInput: parseFloat(user.cost_per_1m_input),
-        costPer1MOutput: parseFloat(user.cost_per_1m_output),
-        contextWindow: user.context_window
+        maxOutputTokens: user.max_output_tokens || 4096,
+        maxTokens: user.max_output_tokens || 4096,
+        chunkSize: 4000,
+        costPer1MInput: parseFloat(user.cost_per_1m_input || 0),
+        costPer1MOutput: parseFloat(user.cost_per_1m_output || 0),
+        contextWindow: user.context_window || 128000
       },
+      tier: user.tier,
       requiresApiKey
     });
   } catch (error) {

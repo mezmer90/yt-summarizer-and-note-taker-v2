@@ -94,15 +94,43 @@ async function handleCheckoutCompleted(session) {
       const priceId = session.metadata.price_id;
       const tier = PRICE_TO_TIER[priceId];
       const planName = PRICE_TO_PLAN_NAME[priceId];
+      const previousSubscriptionId = session.metadata.previous_subscription_id;
 
+      // If this was an upgrade from an existing subscription, cancel it now
+      if (previousSubscriptionId) {
+        try {
+          console.log(`🔄 Canceling previous subscription ${previousSubscriptionId} after Lifetime payment`);
+
+          const subscription = await stripe.subscriptions.retrieve(previousSubscriptionId);
+
+          if (subscription.status === 'active' || subscription.status === 'trialing') {
+            // Cancel with proration to issue refund
+            await stripe.subscriptions.cancel(previousSubscriptionId, {
+              prorate: true,
+              invoice_now: true
+            });
+
+            console.log(`✅ Canceled previous subscription ${previousSubscriptionId} with prorated refund`);
+          } else {
+            console.log(`⚠️ Previous subscription ${previousSubscriptionId} status is ${subscription.status}, skipping cancellation`);
+          }
+        } catch (cancelError) {
+          console.error(`❌ Error canceling previous subscription ${previousSubscriptionId}:`, cancelError);
+          // Continue with Lifetime activation even if cancellation fails
+        }
+      }
+
+      // Activate Lifetime plan
       await pool.query(
         `UPDATE users
          SET tier = $1,
              plan_name = $2,
              stripe_customer_id = $3,
              stripe_price_id = $4,
+             stripe_subscription_id = NULL,
              subscription_status = 'active',
              subscription_start_date = NOW(),
+             subscription_end_date = NULL,
              updated_at = NOW()
          WHERE extension_user_id = $5`,
         [tier, planName, customerId, priceId, extensionUserId]

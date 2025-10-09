@@ -1077,8 +1077,9 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
     const user = userResult.rows[0];
     let proratedCredit = 0;
     let customerId = user.stripe_customer_id;
+    let previousSubscriptionId = null;
 
-    // If user has active subscription, calculate proration and cancel it
+    // If user has active subscription, calculate proration (but DON'T cancel yet)
     if (user.stripe_subscription_id) {
       try {
         // Retrieve subscription to calculate proration
@@ -1093,6 +1094,9 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
         });
 
         if (subscription.status === 'active' || subscription.status === 'trialing') {
+          // Store subscription ID to cancel AFTER payment succeeds
+          previousSubscriptionId = user.stripe_subscription_id;
+
           // Calculate prorated refund amount
           const now = Math.floor(Date.now() / 1000);
           const periodEnd = subscription.current_period_end;
@@ -1115,7 +1119,7 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
             proratedCredit = Math.floor((priceAmount * remainingTime) / totalPeriod);
           }
 
-          console.log('Proration calculation:', {
+          console.log('Proration calculation (will apply AFTER payment):', {
             priceAmount,
             totalPeriod,
             remainingTime,
@@ -1123,28 +1127,12 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
             remainingDays: (remainingTime / 86400).toFixed(1)
           });
 
-          // Cancel subscription immediately and issue refund
-          await stripe.subscriptions.cancel(user.stripe_subscription_id, {
-            prorate: true, // This triggers automatic prorated refund
-            invoice_now: true
-          });
-
-          // Update database - subscription canceled
-          await pool.query(
-            `UPDATE users
-             SET subscription_status = 'canceled',
-                 subscription_end_date = NOW(),
-                 updated_at = NOW()
-             WHERE extension_user_id = $1`,
-            [extensionUserId]
-          );
-
-          console.log(`✅ Canceled subscription ${user.stripe_subscription_id} with prorated refund: $${(proratedCredit / 100).toFixed(2)}`);
+          console.log(`ℹ️ Subscription ${user.stripe_subscription_id} will be canceled AFTER Lifetime payment succeeds`);
         } else {
           console.log(`⚠️ Subscription status is ${subscription.status}, no proration needed`);
         }
       } catch (subError) {
-        console.error('❌ Error canceling subscription:', subError);
+        console.error('❌ Error retrieving subscription:', subError);
         // Continue anyway - we'll still create the lifetime checkout
       }
     }
@@ -1181,7 +1169,8 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
       metadata: {
         extension_user_id: extensionUserId,
         price_id: lifetimePriceId,
-        upgraded_from_subscription: user.stripe_subscription_id ? 'true' : 'false',
+        upgraded_from_subscription: previousSubscriptionId ? 'true' : 'false',
+        previous_subscription_id: previousSubscriptionId || '',
         prorated_credit: proratedCredit.toString()
       }
     };
@@ -1224,8 +1213,11 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
       sessionId: session.id,
       url: session.url,
       proratedCredit: proratedCredit,
+      hasPreviousSubscription: !!previousSubscriptionId,
       message: proratedCredit > 0
-        ? `Your previous subscription has been canceled. You'll receive a $${(proratedCredit / 100).toFixed(2)} refund to your card, and a $${(proratedCredit / 100).toFixed(2)} discount has been applied to your Lifetime purchase.`
+        ? `After successful payment, your current subscription will be canceled and you'll receive a $${(proratedCredit / 100).toFixed(2)} refund to your card. A $${(proratedCredit / 100).toFixed(2)} discount has been applied to your Lifetime purchase.`
+        : previousSubscriptionId
+        ? 'After successful payment, your current subscription will be canceled automatically.'
         : 'Proceeding to Lifetime checkout.'
     });
 
