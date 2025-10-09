@@ -7,7 +7,7 @@ const { requireAdmin } = require('../middleware/auth');
 const otpStore = new Map(); // { email: { otp: '123456', expiresAt: timestamp, verified: false } }
 
 // Import email service functions
-const { generateVerificationCode, sendEmail, sendStudentApprovalEmail } = require('../services/emailService');
+const { generateVerificationCode, sendEmail, sendStudentApprovalEmail, sendAdminNewVerificationNotification } = require('../services/emailService');
 
 // Helper function: Send reupload request email
 async function sendReuploadEmail(email, studentName, reuploadSide) {
@@ -602,6 +602,7 @@ router.post('/verify', async (req, res) => {
     console.log(`✅ Student verification submitted by ${extension_user_id} (${email})`);
 
     const verificationId = result.rows[0].id;
+    const verificationData = result.rows[0];
 
     // Send response immediately
     res.json({
@@ -609,9 +610,15 @@ router.post('/verify', async (req, res) => {
       message: 'Student verification submitted successfully! An admin will review your request within 24 hours. You will receive an email notification once approved.',
       verification: {
         id: verificationId,
-        email: result.rows[0].email,
-        status: result.rows[0].status
+        email: verificationData.email,
+        status: verificationData.status
       }
+    });
+
+    // Send notification to admin asynchronously (don't wait for it)
+    console.log(`📧 Sending admin notification for verification ID ${verificationId}`);
+    sendAdminNewVerificationNotification(verificationData).catch(err => {
+      console.error(`❌ Failed to send admin notification for ID ${verificationId}:`, err);
     });
 
     // AI verification disabled for launch - will be enabled later

@@ -252,6 +252,46 @@ YouTube Summarizer Pro - AI-Powered Video Summaries
   return sendEmail({ to: email, subject, html, text });
 };
 
+// Send notification to admin when new student verification request is submitted
+const sendAdminNewVerificationNotification = async (verificationData) => {
+  const adminEmail = 'support@aifreedomclub.com';
+  const subject = '🎓 New Student Verification Request';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0;">🎓 New Verification Request</h1>
+        <p style="margin: 10px 0 0 0;">Student Discount Application</p>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <h2>New Student Verification Submitted</h2>
+
+        <div style="background: white; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Student Name:</strong> ${verificationData.student_name}</p>
+          <p style="margin: 5px 0;"><strong>Email:</strong> ${verificationData.email}</p>
+          <p style="margin: 5px 0;"><strong>University:</strong> ${verificationData.university_name || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Graduation Year:</strong> ${verificationData.graduation_year || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Verification ID:</strong> #${verificationData.id}</p>
+          <p style="margin: 5px 0;"><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://yt-summarizer-and-note-taker-v2-production.up.railway.app/admin"
+             style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+            Review in Admin Panel
+          </a>
+        </div>
+
+        <p style="color: #666; font-size: 14px;">
+          Please review the student ID image and approve or reject the verification request.
+        </p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({ to: adminEmail, subject, html });
+};
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
@@ -259,5 +299,6 @@ module.exports = {
   sendUsageLimitEmail,
   sendStudentApprovalEmail,
   generateVerificationCode,
-  sendEmailVerificationCode
+  sendEmailVerificationCode,
+  sendAdminNewVerificationNotification
 };
