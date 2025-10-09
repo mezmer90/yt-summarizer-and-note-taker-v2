@@ -172,7 +172,7 @@ async function loadModels() {
             <option value="mistralai/mistral-medium" ${model.model_id === 'mistralai/mistral-medium' ? 'selected' : ''}>Mistral Medium ($2.70/$8.10)</option>
           </optgroup>
         </select>
-        <button onclick="updateModel('${model.tier}')" style="margin-top: 12px; width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">Update Model for ${model.tier.toUpperCase()} Tier</button>
+        <button class="btn-update-model" data-tier="${model.tier}" style="margin-top: 12px; width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">Update Model for ${model.tier.toUpperCase()} Tier</button>
       </div>
     `).join('');
   } catch (error) {
@@ -379,7 +379,7 @@ async function loadSettings() {
               <br><small>${setting.description}</small>
             </label>
             <div class="setting-controls">
-              <select id="setting-${key}" onchange="updateSetting('${key}')">
+              <select id="setting-${key}" data-setting-key="${key}" class="setting-select">
                 <option value="true" ${setting.value === 'true' ? 'selected' : ''}>True</option>
                 <option value="false" ${setting.value === 'false' ? 'selected' : ''}>False</option>
               </select>
@@ -398,7 +398,7 @@ async function loadSettings() {
             </label>
             <div class="setting-controls">
               <input type="password" id="setting-${key}" value="${setting.value}" placeholder="Enter API key...">
-              <button onclick="updateSetting('${key}')">Save</button>
+              <button class="btn-save-setting" data-setting-key="${key}">Save</button>
             </div>
           </div>
         `;
@@ -413,7 +413,7 @@ async function loadSettings() {
           </label>
           <div class="setting-controls">
             <input type="text" id="setting-${key}" value="${setting.value}">
-            <button onclick="updateSetting('${key}')">Save</button>
+            <button class="btn-save-setting" data-setting-key="${key}">Save</button>
           </div>
         </div>
       `;
@@ -840,8 +840,24 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// Event delegation for student verification action buttons
+// Event delegation for student verification action buttons and settings
 document.addEventListener('click', (e) => {
+  // Settings save button
+  if (e.target.classList.contains('btn-save-setting')) {
+    const settingKey = e.target.getAttribute('data-setting-key');
+    if (settingKey) {
+      updateSetting(settingKey);
+    }
+  }
+
+  // Model update button
+  if (e.target.classList.contains('btn-update-model')) {
+    const tier = e.target.getAttribute('data-tier');
+    if (tier) {
+      updateModel(tier);
+    }
+  }
+
   // Approve button
   if (e.target.classList.contains('btn-approve')) {
     const studentId = e.target.getAttribute('data-student-id');
@@ -888,6 +904,16 @@ document.addEventListener('click', (e) => {
     const userEmail = e.target.getAttribute('data-user-email');
     if (userEmail) {
       resetUserStudentStatus(userEmail);
+    }
+  }
+});
+
+// Event delegation for settings dropdowns (change event)
+document.addEventListener('change', (e) => {
+  if (e.target.classList.contains('setting-select')) {
+    const settingKey = e.target.getAttribute('data-setting-key');
+    if (settingKey) {
+      updateSetting(settingKey);
     }
   }
 });
