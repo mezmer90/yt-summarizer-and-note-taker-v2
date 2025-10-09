@@ -8,8 +8,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const sendEmail = async ({ to, subject, html, text }) => {
   try {
     // Use Resend if API key is configured
+    console.log('📧 Attempting to send email to:', to);
+    console.log('   RESEND_API_KEY configured:', !!process.env.RESEND_API_KEY);
+
     if (process.env.RESEND_API_KEY) {
       const fromEmail = process.env.FROM_EMAIL || 'noreply@aifreedomclub.com';
+      console.log('   Using Resend with FROM_EMAIL:', fromEmail);
 
       const result = await resend.emails.send({
         from: fromEmail,
@@ -19,9 +23,11 @@ const sendEmail = async ({ to, subject, html, text }) => {
         text: text || html.replace(/<[^>]*>/g, '')
       });
 
-      console.log('✅ Email sent via Resend:', result.id);
+      console.log('✅ Email sent via Resend successfully! Message ID:', result.id);
       return { success: true, messageId: result.id };
     }
+
+    console.warn('⚠️  RESEND_API_KEY not configured, attempting SMTP fallback');
 
     // Fallback to SMTP if Resend not configured
     if (!transporter || !transporter.sendMail || typeof transporter.sendMail !== 'function') {
