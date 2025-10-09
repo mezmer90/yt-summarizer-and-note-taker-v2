@@ -28,51 +28,52 @@ async function setupModelConfigs() {
     }
 
     // Insert/Update model configurations for all tiers
+    // Using correct OpenRouter model IDs (verified from https://openrouter.ai/models)
     const modelConfigs = [
       {
         tier: 'free',
-        model_id: 'google/gemini-flash-1.5-8b',
-        model_name: 'Gemini Flash 1.5 8B',
+        model_id: 'google/gemini-2.5-flash-lite-preview-09-2025',
+        model_name: 'Gemini 2.5 Flash Lite',
         max_output_tokens: 8192,
-        cost_per_1m_input: 0.0375,
-        cost_per_1m_output: 0.15,
-        context_window: 1000000
+        cost_per_1m_input: 0.10,
+        cost_per_1m_output: 0.40,
+        context_window: 1048576
       },
       {
         tier: 'premium',
-        model_id: 'google/gemini-pro-1.5',
-        model_name: 'Gemini Pro 1.5',
+        model_id: 'google/gemini-2.5-flash-preview-09-2025',
+        model_name: 'Gemini 2.5 Flash',
         max_output_tokens: 8192,
-        cost_per_1m_input: 1.25,
-        cost_per_1m_output: 5.00,
-        context_window: 2000000
+        cost_per_1m_input: 0.30,
+        cost_per_1m_output: 2.50,
+        context_window: 1048576
       },
       {
         tier: 'unlimited',
-        model_id: 'anthropic/claude-3.5-sonnet',
-        model_name: 'Claude 3.5 Sonnet',
+        model_id: 'anthropic/claude-sonnet-4.5',
+        model_name: 'Claude Sonnet 4.5',
         max_output_tokens: 8192,
         cost_per_1m_input: 3.00,
         cost_per_1m_output: 15.00,
-        context_window: 200000
+        context_window: 1000000
       },
       {
         tier: 'managed',
-        model_id: 'anthropic/claude-3.5-sonnet',
-        model_name: 'Claude 3.5 Sonnet',
+        model_id: 'anthropic/claude-sonnet-4.5',
+        model_name: 'Claude Sonnet 4.5',
         max_output_tokens: 8192,
         cost_per_1m_input: 3.00,
         cost_per_1m_output: 15.00,
-        context_window: 200000
+        context_window: 1000000
       },
       {
         tier: 'trial',
-        model_id: 'google/gemini-flash-1.5-8b',
-        model_name: 'Gemini Flash 1.5 8B',
+        model_id: 'google/gemini-2.5-flash-lite-preview-09-2025',
+        model_name: 'Gemini 2.5 Flash Lite',
         max_output_tokens: 8192,
-        cost_per_1m_input: 0.0375,
-        cost_per_1m_output: 0.15,
-        context_window: 1000000
+        cost_per_1m_input: 0.10,
+        cost_per_1m_output: 0.40,
+        context_window: 1048576
       }
     ];
 
