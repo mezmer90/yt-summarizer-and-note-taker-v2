@@ -610,7 +610,13 @@ async function approveStudent(id) {
     if (!response.ok) throw new Error(data.message);
 
     alert('✓ Student verification approved!');
-    loadStudentVerifications(currentStudentFilter);
+
+    // Reload student verifications, users, and stats to reflect the change
+    await Promise.all([
+      loadStudentVerifications(currentStudentFilter),
+      loadUsers(),
+      loadStats()
+    ]);
   } catch (error) {
     console.error('Error approving verification:', error);
     alert('Error: ' + error.message);
@@ -637,7 +643,12 @@ async function rejectStudent(id) {
     if (!response.ok) throw new Error(data.message);
 
     alert('✗ Student verification rejected');
-    loadStudentVerifications(currentStudentFilter);
+
+    // Reload student verifications and stats to reflect the change
+    await Promise.all([
+      loadStudentVerifications(currentStudentFilter),
+      loadStats()
+    ]);
   } catch (error) {
     console.error('Error rejecting verification:', error);
     alert('Error: ' + error.message);
