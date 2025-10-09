@@ -1021,6 +1021,40 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Admin: Debug - Get user and verification data by email
+router.get('/admin/debug-user/:email', requireAdmin, async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    // Get user data
+    const userData = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
+
+    // Get verification data
+    const verificationData = await pool.query(
+      'SELECT * FROM student_verifications WHERE email = $1 ORDER BY requested_at DESC LIMIT 1',
+      [email]
+    );
+
+    res.json({
+      success: true,
+      user: userData.rows[0] || null,
+      verification: verificationData.rows[0] || null,
+      user_count: userData.rows.length,
+      verification_count: verificationData.rows.length
+    });
+
+  } catch (error) {
+    console.error('Error debugging user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to debug user data'
+    });
+  }
+});
+
 // Admin: Manually reset user's student verification status by email
 router.post('/admin/reset-user-status', requireAdmin, async (req, res) => {
   try {
