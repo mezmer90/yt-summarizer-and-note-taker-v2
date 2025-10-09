@@ -1091,12 +1091,16 @@ router.post('/admin/reset-user-status', requireAdmin, async (req, res) => {
 
     console.log(`✅ Reset student verification for:`, updateResult.rows[0]);
 
-    // Log admin action
-    await pool.query(
-      `INSERT INTO admin_actions (admin_email, action, target_entity, target_id, details)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [adminEmail, 'reset_user_student_status', 'users', updateResult.rows[0].extension_user_id, JSON.stringify({ email, reset_by: adminEmail })]
-    );
+    // Log admin action (optional - don't fail if this doesn't work)
+    try {
+      await pool.query(
+        `INSERT INTO admin_actions (admin_email, action, target_entity, target_id, details)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [adminEmail, 'reset_user_student_status', 'users', updateResult.rows[0].extension_user_id, JSON.stringify({ email, reset_by: adminEmail })]
+      );
+    } catch (logError) {
+      console.warn('Could not log admin action:', logError.message);
+    }
 
     res.json({
       success: true,
