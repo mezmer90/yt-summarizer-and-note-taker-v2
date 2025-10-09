@@ -217,6 +217,7 @@ async function loadUsers() {
               <th>Tier</th>
               <th>Plan Name</th>
               <th>Status</th>
+              <th>Student Verified</th>
               <th>Stripe Customer</th>
               <th>Subscription ID</th>
               <th>Period End</th>
@@ -232,6 +233,15 @@ async function loadUsers() {
               const periodEnd = user.subscription_end_date ? new Date(user.subscription_end_date) : null;
               const isExpired = periodEnd && periodEnd < new Date();
               const rowClass = isExpired ? 'user-expired' : (isActive ? 'user-active' : 'user-inactive');
+
+              // Student verification status
+              const studentVerifiedAt = user.student_verified_at ? new Date(user.student_verified_at) : null;
+              const studentExpiresAt = user.student_verification_expires_at ? new Date(user.student_verification_expires_at) : null;
+              const studentExpired = studentExpiresAt && studentExpiresAt < new Date();
+              const isStudentVerified = user.student_verified && !studentExpired;
+              const daysRemaining = studentExpiresAt && !studentExpired
+                ? Math.ceil((studentExpiresAt - new Date()) / (1000 * 60 * 60 * 24))
+                : 0;
 
               return `
                 <tr class="${rowClass}">
@@ -249,6 +259,17 @@ async function loadUsers() {
                     </span>
                     ${isCanceling ? '<br><small class="text-warning">⚠️ Canceling</small>' : ''}
                     ${isExpired ? '<br><small class="text-expired">⏰ Expired</small>' : ''}
+                  </td>
+                  <td>
+                    ${isStudentVerified
+                      ? `<span class="status-badge status-active" title="Verified on ${studentVerifiedAt.toLocaleDateString()}">✓ Verified</span>
+                         <br><small style="color: ${daysRemaining > 90 ? '#10b981' : daysRemaining > 30 ? '#f59e0b' : '#ef4444'}">
+                         ${daysRemaining} days left</small>`
+                      : studentExpired
+                        ? `<span class="status-badge status-expired">⏰ Expired</span>
+                           <br><small style="color: #ef4444">Needs reverification</small>`
+                        : `<span class="status-badge status-none">✗ Not Verified</span>`
+                    }
                   </td>
                   <td>
                     ${user.stripe_customer_id

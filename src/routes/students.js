@@ -208,40 +208,69 @@ router.get('/verify-email/:token', async (req, res) => {
   }
 });
 
-// Check verification status
+// Check verification status (by extension_user_id or email)
 router.get('/status/:extension_user_id', async (req, res) => {
   try {
     const { extension_user_id } = req.params;
 
-    const result = await pool.query(
-      `SELECT id, status, requested_at, reviewed_at, rejection_reason, expires_at
-       FROM student_verifications
-       WHERE extension_user_id = $1
-       ORDER BY requested_at DESC
-       LIMIT 1`,
+    // First check user's verification status in users table (tied to email)
+    const userResult = await pool.query(
+      `SELECT email, student_verified, student_verified_at, student_verification_expires_at
+       FROM users
+       WHERE extension_user_id = $1`,
       [extension_user_id]
     );
 
-    if (result.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.json({
         success: true,
         verified: false,
-        message: 'No verification request found'
+        message: 'User not found'
       });
     }
 
-    const verification = result.rows[0];
-    const verified = verification.status === 'approved' &&
-                    (!verification.expires_at || new Date(verification.expires_at) > new Date());
+    const user = userResult.rows[0];
+    const now = new Date();
+    const expiresAt = user.student_verification_expires_at ? new Date(user.student_verification_expires_at) : null;
+    const isExpired = expiresAt && expiresAt < now;
+    const daysRemaining = expiresAt ? Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)) : 0;
+
+    // If verification expired, automatically set student_verified to false
+    if (isExpired && user.student_verified) {
+      await pool.query(
+        `UPDATE users SET student_verified = false, updated_at = NOW() WHERE extension_user_id = $1`,
+        [extension_user_id]
+      );
+      console.log(`⚠️  Student verification expired for ${user.email}`);
+    }
+
+    const verified = user.student_verified && !isExpired;
+
+    // Also get latest verification request details
+    const verificationResult = await pool.query(
+      `SELECT id, status, requested_at, reviewed_at, rejection_reason, expires_at
+       FROM student_verifications
+       WHERE extension_user_id = $1 OR email = $2
+       ORDER BY requested_at DESC
+       LIMIT 1`,
+      [extension_user_id, user.email]
+    );
+
+    const verificationRequest = verificationResult.rows[0] || null;
 
     res.json({
       success: true,
       verified,
-      status: verification.status,
-      requested_at: verification.requested_at,
-      reviewed_at: verification.reviewed_at,
-      rejection_reason: verification.rejection_reason,
-      expires_at: verification.expires_at
+      student_verified_at: user.student_verified_at,
+      expires_at: user.student_verification_expires_at,
+      days_remaining: daysRemaining,
+      needs_reverification: isExpired,
+      latest_request: verificationRequest ? {
+        status: verificationRequest.status,
+        requested_at: verificationRequest.requested_at,
+        reviewed_at: verificationRequest.reviewed_at,
+        rejection_reason: verificationRequest.rejection_reason
+      } : null
     });
 
   } catch (error) {
@@ -320,10 +349,27 @@ router.post('/admin/approve/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     const adminEmail = req.admin.email;
 
-    // Set expiration to 1 year from now
+    // Set expiration to 1 year from now (365 days)
+    const now = new Date();
     const expiresAt = new Date();
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    expiresAt.setDate(expiresAt.getDate() + 365);
 
+    // Get verification details first
+    const verificationData = await pool.query(
+      'SELECT * FROM student_verifications WHERE id = $1',
+      [id]
+    );
+
+    if (verificationData.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Verification request not found'
+      });
+    }
+
+    const verification = verificationData.rows[0];
+
+    // Update student verification status
     const result = await pool.query(
       `UPDATE student_verifications
        SET status = 'approved',
@@ -335,12 +381,19 @@ router.post('/admin/approve/:id', requireAdmin, async (req, res) => {
       [adminEmail, expiresAt, id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Verification request not found'
-      });
-    }
+    // Update user's student verification status
+    // Find user by email (email is tied to student verification)
+    await pool.query(
+      `UPDATE users
+       SET student_verified = true,
+           student_verified_at = NOW(),
+           student_verification_expires_at = $1,
+           updated_at = NOW()
+       WHERE email = $2`,
+      [expiresAt, verification.email]
+    );
+
+    console.log(`✅ Student verification approved for ${verification.email}, expires: ${expiresAt.toISOString()}`);
 
     // Send approval email
     try {
@@ -360,7 +413,7 @@ router.post('/admin/approve/:id', requireAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Student verification approved and notification email sent',
+      message: 'Student verification approved and notification email sent. User status updated.',
       verification: result.rows[0]
     });
 

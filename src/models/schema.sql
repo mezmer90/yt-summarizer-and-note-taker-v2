@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS users (
   tier VARCHAR(50) DEFAULT 'free',
   plan_name VARCHAR(100),
   subscription_status VARCHAR(50) DEFAULT 'active',
+  student_verified BOOLEAN DEFAULT false,
+  student_verified_at TIMESTAMP,
+  student_verification_expires_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

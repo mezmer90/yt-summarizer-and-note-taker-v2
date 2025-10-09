@@ -23,7 +23,7 @@ SELECT
 -- Drop the old user_details view first to avoid column conflicts
 DROP VIEW IF EXISTS user_details;
 
--- Create new user_details view with all fields including Stripe data
+-- Create new user_details view with all fields including Stripe data and student verification
 CREATE VIEW user_details AS
 SELECT
   u.id,
@@ -39,6 +39,9 @@ SELECT
   u.subscription_end_date,
   u.subscription_cancel_at,
   u.trial_end_date,
+  u.student_verified,
+  u.student_verified_at,
+  u.student_verification_expires_at,
   mc.model_name as assigned_model,
   mc.model_id,
   COALESCE(SUM(uu.videos_processed), 0) as total_videos,
