@@ -514,6 +514,7 @@ function renderStudentVerifications(verifications) {
           <th>Grad Year</th>
           <th>Status</th>
           <th>AI Status</th>
+          <th>AI Reason</th>
           <th>Requested</th>
           <th>Actions</th>
         </tr>
@@ -555,6 +556,9 @@ function renderStudentVerifications(verifications) {
               ${aiStatusBadge}
               ${v.ai_verified_at ? `<br><small>Verified: ${new Date(v.ai_verified_at).toLocaleDateString()}</small>` : ''}
               ${v.ai_cost ? `<br><small>Cost: $${parseFloat(v.ai_cost).toFixed(4)}</small>` : ''}
+            </td>
+            <td>
+              ${v.ai_reason ? `<small style="color: #666;">${v.ai_reason}</small>` : '<span class="text-muted">-</span>'}
             </td>
             <td>${new Date(v.requested_at).toLocaleDateString()}</td>
             <td class="actions-cell">
