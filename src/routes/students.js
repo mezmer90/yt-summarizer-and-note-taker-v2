@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { requireAdmin } = require('../middleware/auth');
-const crypto = require('crypto');
-const { sendStudentVerificationEmail, sendStudentApprovalEmail } = require('../services/emailService');
+const { sendStudentApprovalEmail } = require('../services/emailService');
 
 // Store OTPs temporarily (in production, use Redis or database)
 const otpStore = new Map(); // { email: { otp: '123456', expiresAt: timestamp, verified: false } }
@@ -32,7 +31,7 @@ router.post('/send-otp', async (req, res) => {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     await resend.emails.send({
-      from: 'YouTube Summarizer Pro <noreply@seoorb.com>',
+      from: 'YouTube Summarizer Pro <onboarding@resend.dev>',
       to: email,
       subject: 'Student Verification - Email OTP',
       html: `
@@ -259,111 +258,7 @@ router.post('/verify', async (req, res) => {
   }
 });
 
-// Verify email via token (user clicks link in email)
-router.get('/verify-email/:token', async (req, res) => {
-  try {
-    const { token } = req.params;
-
-    // Find verification by token
-    const result = await pool.query(
-      `SELECT * FROM student_verifications
-       WHERE verification_token = $1`,
-      [token]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).send(`
-        <html>
-          <head><title>Invalid Link</title></head>
-          <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1>❌ Invalid Verification Link</h1>
-            <p>This verification link is invalid or has already been used.</p>
-          </body>
-        </html>
-      `);
-    }
-
-    const verification = result.rows[0];
-
-    // Check if token expired
-    if (new Date() > new Date(verification.token_expires_at)) {
-      return res.status(400).send(`
-        <html>
-          <head><title>Link Expired</title></head>
-          <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1>⏰ Verification Link Expired</h1>
-            <p>This verification link has expired. Please submit a new verification request.</p>
-          </body>
-        </html>
-      `);
-    }
-
-    // Check if already verified
-    if (verification.email_verified) {
-      return res.send(`
-        <html>
-          <head><title>Already Verified</title></head>
-          <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1>✓ Email Already Verified</h1>
-            <p>Your email has already been verified. An admin will review your request soon.</p>
-          </body>
-        </html>
-      `);
-    }
-
-    // Mark as verified and change status to pending (ready for admin review)
-    await pool.query(
-      `UPDATE student_verifications
-       SET email_verified = true,
-           status = 'pending',
-           verification_token = NULL
-       WHERE id = $1`,
-      [verification.id]
-    );
-
-    res.send(`
-      <html>
-        <head>
-          <title>Email Verified!</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              text-align: center;
-              padding: 50px;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-            }
-            .container {
-              background: white;
-              color: #333;
-              padding: 40px;
-              border-radius: 10px;
-              max-width: 500px;
-              margin: 0 auto;
-              box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            }
-            h1 { color: #10b981; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>✓ Email Verified!</h1>
-            <p><strong>Success!</strong> Your email has been verified.</p>
-            <p>An admin will review your student verification request and approve it within 24 hours.</p>
-            <p>You'll receive an email once approved.</p>
-            <p style="margin-top: 30px; color: #666; font-size: 14px;">You can close this window now.</p>
-          </div>
-        </body>
-      </html>
-    `);
-
-    console.log(`✅ Email verified for: ${verification.email}`);
-
-  } catch (error) {
-    console.error('Error verifying email:', error);
-    res.status(500).send('Error verifying email');
-  }
-});
+// Old link-based verification endpoint removed - now using OTP verification
 
 // Check verification status (by extension_user_id or email)
 router.get('/status/:extension_user_id', async (req, res) => {
