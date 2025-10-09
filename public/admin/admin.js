@@ -507,6 +507,7 @@ function renderStudentVerifications(verifications) {
           <th>ID</th>
           <th>Student Name</th>
           <th>Email</th>
+          <th>Email Verified</th>
           <th>University</th>
           <th>Grad Year</th>
           <th>Status</th>
@@ -520,6 +521,11 @@ function renderStudentVerifications(verifications) {
             <td>#${v.id}</td>
             <td>${v.student_name || 'N/A'}</td>
             <td>${v.email}</td>
+            <td>
+              <span class="status-badge ${v.email_verified ? 'status-active' : 'status-none'}">
+                ${v.email_verified ? '✓ Yes' : '✗ No'}
+              </span>
+            </td>
             <td>${v.university_name || 'N/A'}</td>
             <td>${v.graduation_year || 'N/A'}</td>
             <td>
@@ -527,8 +533,8 @@ function renderStudentVerifications(verifications) {
             </td>
             <td>${new Date(v.requested_at).toLocaleDateString()}</td>
             <td class="actions-cell">
-              ${v.status === 'pending' || v.status === 'email_pending' ? `
-                <button class="btn-approve" data-student-id="${v.id}" ${v.status === 'email_pending' ? 'disabled title="Email not verified yet"' : ''}>✓ Approve</button>
+              ${v.status === 'pending' ? `
+                <button class="btn-approve" data-student-id="${v.id}">✓ Approve</button>
                 <button class="btn-reject" data-student-id="${v.id}">✗ Reject</button>
                 <br>
               ` : v.status === 'approved' ? `
