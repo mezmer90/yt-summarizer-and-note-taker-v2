@@ -297,15 +297,16 @@ async function runAutoAIVerification(verificationId) {
         [expiresAt, verificationId]
       );
 
-      // Update user's student verification status
+      // Update user's student verification status (create if doesn't exist)
       await pool.query(
-        `UPDATE users
+        `INSERT INTO users (extension_user_id, email, student_verified, student_verified_at, student_verification_expires_at, tier, created_at, updated_at)
+         VALUES ($1, $2, true, NOW(), $3, 'free', NOW(), NOW())
+         ON CONFLICT (extension_user_id) DO UPDATE
          SET student_verified = true,
              student_verified_at = NOW(),
-             student_verification_expires_at = $1,
-             updated_at = NOW()
-         WHERE email = $2`,
-        [expiresAt, verification.email]
+             student_verification_expires_at = $3,
+             updated_at = NOW()`,
+        [verification.extension_user_id, verification.email, expiresAt]
       );
 
       // Send approval email
@@ -853,15 +854,16 @@ router.post('/admin/approve/:id', requireAdmin, async (req, res) => {
     );
 
     // Update user's student verification status
-    // Find user by email (email is tied to student verification)
-    await pool.query(
-      `UPDATE users
+    // Find user by email OR extension_user_id, create if doesn't exist
+    const userUpdateResult = await pool.query(
+      `INSERT INTO users (extension_user_id, email, student_verified, student_verified_at, student_verification_expires_at, tier, created_at, updated_at)
+       VALUES ($1, $2, true, NOW(), $3, 'free', NOW(), NOW())
+       ON CONFLICT (extension_user_id) DO UPDATE
        SET student_verified = true,
            student_verified_at = NOW(),
-           student_verification_expires_at = $1,
-           updated_at = NOW()
-       WHERE email = $2`,
-      [expiresAt, verification.email]
+           student_verification_expires_at = $3,
+           updated_at = NOW()`,
+      [verification.extension_user_id, verification.email, expiresAt]
     );
 
     console.log(`✅ Student verification approved for ${verification.email}, expires: ${expiresAt.toISOString()}`);
