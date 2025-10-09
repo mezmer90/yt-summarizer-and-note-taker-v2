@@ -227,9 +227,12 @@ async function loadUsers() {
             ${data.users.map(user => {
               const isActive = user.subscription_status === 'active';
               const isCanceling = user.subscription_cancel_at;
+              const periodEnd = user.subscription_end_date ? new Date(user.subscription_end_date) : null;
+              const isExpired = periodEnd && periodEnd < new Date();
+              const rowClass = isExpired ? 'user-expired' : (isActive ? 'user-active' : 'user-inactive');
 
               return `
-                <tr class="${isActive ? 'user-active' : 'user-inactive'}">
+                <tr class="${rowClass}">
                   <td class="email-cell">
                     <strong>${user.email || 'No email'}</strong>
                     <br><small class="user-id">${user.extension_user_id.substring(0, 20)}...</small>
@@ -243,6 +246,7 @@ async function loadUsers() {
                       ${(user.subscription_status || 'none').toUpperCase()}
                     </span>
                     ${isCanceling ? '<br><small class="text-warning">⚠️ Canceling</small>' : ''}
+                    ${isExpired ? '<br><small class="text-expired">⏰ Expired</small>' : ''}
                   </td>
                   <td>
                     ${user.stripe_customer_id
@@ -254,7 +258,7 @@ async function loadUsers() {
                       ? `<a href="https://dashboard.stripe.com/subscriptions/${user.stripe_subscription_id}" target="_blank" class="stripe-link">${user.stripe_subscription_id.substring(0, 12)}...</a>`
                       : '<span class="text-muted">-</span>'}
                   </td>
-                  <td>${user.subscription_end_date ? new Date(user.subscription_end_date).toLocaleDateString() : '-'}</td>
+                  <td>${periodEnd ? periodEnd.toLocaleDateString() : '-'}</td>
                   <td>${user.total_videos || 0}</td>
                   <td>$${(parseFloat(user.total_cost) || 0).toFixed(2)}</td>
                   <td>${new Date(user.created_at).toLocaleDateString()}</td>
