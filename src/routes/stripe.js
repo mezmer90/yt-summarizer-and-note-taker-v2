@@ -555,24 +555,18 @@ router.post('/create-checkout', async (req, res) => {
 
     // Add trial configuration for managed monthly
     if (trialConfig.hasTrial && sessionParams.mode === 'subscription') {
-      // For $1 trial: Create subscription with trial, add $1 invoice item
+      // For $1 trial: Create subscription with trial period
       sessionParams.subscription_data.trial_period_days = trialConfig.trialPeriodDays;
       sessionParams.subscription_data.metadata.has_trial = 'true';
 
-      // Add $1 trial fee as invoice item
-      sessionParams.invoice_creation = {
-        enabled: true,
-        invoice_data: {
-          description: '14-day trial for $1'
-        }
-      };
-
+      // Add $1 trial fee as a one-time line item
+      // Note: invoice_creation is NOT allowed for subscription mode - Stripe creates invoices automatically
       sessionParams.line_items.push({
         price_data: {
           currency: 'usd',
           product_data: {
             name: 'Trial Period',
-            description: '14-day trial access'
+            description: '14-day trial access for $1'
           },
           unit_amount: trialConfig.trialAmount // $1 in cents
         },
