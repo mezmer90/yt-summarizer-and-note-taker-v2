@@ -7,7 +7,10 @@ const { sendStudentApprovalEmail } = require('../services/emailService');
 // Store OTPs temporarily (in production, use Redis or database)
 const otpStore = new Map(); // { email: { otp: '123456', expiresAt: timestamp, verified: false } }
 
-// Send OTP to email
+// Import email service functions
+const { generateVerificationCode, sendEmail } = require('../services/emailService');
+
+// Send OTP to email (matching login/registration logic)
 router.post('/send-otp', async (req, res) => {
   try {
     const { email } = req.body;
@@ -19,35 +22,42 @@ router.post('/send-otp', async (req, res) => {
       });
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate 6-digit OTP using shared function
+    const otp = generateVerificationCode();
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
     // Store OTP
     otpStore.set(email, { otp, expiresAt, verified: false });
 
-    // Send OTP via email using Resend
-    const { Resend } = require('resend');
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
-    await resend.emails.send({
-      from: 'YouTube Summarizer Pro <verify@aifreedomclub.com>',
-      to: email,
-      subject: 'Student Verification - Email OTP',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #667eea;">🎓 Student Verification</h2>
-          <p>Your OTP code for student verification is:</p>
-          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-            <h1 style="color: #667eea; font-size: 36px; letter-spacing: 8px; margin: 0;">${otp}</h1>
-          </div>
-          <p>This code will expire in <strong>10 minutes</strong>.</p>
-          <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
-            If you didn't request this code, please ignore this email.
-          </p>
+    // Send OTP email using the same template as login/registration
+    const subject = `Student Verification Code: ${otp}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="margin: 0;">🎓 YouTube Summarizer Pro</h1>
+          <p style="margin: 10px 0 0 0;">Student Verification</p>
         </div>
-      `
-    });
+
+        <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+          <h2>Verify Your Student Email</h2>
+          <p>Thanks for submitting your student verification request. Please verify your email address to continue.</p>
+
+          <div style="background: white; border: 3px solid #667eea; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px; color: #666;">Your verification code is:</p>
+            <div style="font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px; margin-top: 10px;">${otp}</div>
+          </div>
+
+          <p><strong>This code will expire in 10 minutes.</strong></p>
+
+          <p>If you didn't request this code, you can safely ignore this email.</p>
+
+          <p>Best regards,<br>
+          The YouTube Summarizer Pro Team</p>
+        </div>
+      </div>
+    `;
+
+    await sendEmail({ to: email, subject, html });
 
     console.log(`✅ OTP sent to ${email}: ${otp}`);
 
