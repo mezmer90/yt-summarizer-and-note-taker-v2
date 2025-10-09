@@ -154,61 +154,7 @@ const sendUsageLimitEmail = async (email, userName, tier, limit) => {
   return sendEmail({ to: email, subject, html });
 };
 
-// Student verification email
-const sendStudentVerificationEmail = async (email, verificationToken) => {
-  const verificationUrl = `${process.env.BACKEND_URL || 'https://yt-summarizer-and-note-taker-production.up.railway.app'}/api/students/verify-email/${verificationToken}`;
-
-  const subject = '🎓 Verify Your Student Email - YouTube Summarizer Pro';
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <h1 style="margin: 0;">🎓 Student Verification</h1>
-        <p style="margin: 10px 0 0 0;">YouTube Summarizer Pro</p>
-      </div>
-
-      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-        <h2>Verify Your Student Email</h2>
-
-        <p>Hello!</p>
-
-        <p>You've requested student verification for YouTube Summarizer Pro. Click the button below to verify your email address:</p>
-
-        <center>
-          <a href="${verificationUrl}" style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0;">
-            ✓ Verify My Email
-          </a>
-        </center>
-
-        <p>Or copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; color: #667eea;">${verificationUrl}</p>
-
-        <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
-          <strong>⏰ Important:</strong> This verification link expires in 24 hours.
-        </div>
-
-        <p><strong>What happens next?</strong></p>
-        <ol>
-          <li>Click the verification link above</li>
-          <li>Your email will be verified</li>
-          <li>An admin will review your request</li>
-          <li>Once approved, you'll get 50% off on all student plans! 🎉</li>
-        </ol>
-
-        <p>If you didn't request this verification, you can safely ignore this email.</p>
-      </div>
-
-      <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
-        <p>YouTube Summarizer Pro</p>
-        <p>AI-Powered Video Summarization</p>
-        <p style="font-size: 12px; margin-top: 20px;">
-          This is an automated email. Please do not reply to this message.
-        </p>
-      </div>
-    </div>
-  `;
-
-  return sendEmail({ to: email, subject, html });
-};
+// Old link-based verification email removed - now using OTP verification in /send-otp endpoint
 
 // Student approval notification
 const sendStudentApprovalEmail = async (email, expiresAt) => {
@@ -311,7 +257,6 @@ module.exports = {
   sendWelcomeEmail,
   sendUpgradeEmail,
   sendUsageLimitEmail,
-  sendStudentVerificationEmail,
   sendStudentApprovalEmail,
   generateVerificationCode,
   sendEmailVerificationCode
