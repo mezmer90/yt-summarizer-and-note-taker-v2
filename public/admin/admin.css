@@ -995,3 +995,29 @@ th {
     font-size: 13px;
   }
 }
+
+/* AI Verification Button */
+.btn-ai-verify {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.3s;
+  margin-right: 5px;
+}
+
+.btn-ai-verify:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-ai-verify:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.6;
+}
