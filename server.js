@@ -10,6 +10,7 @@ console.log('- PORT:', process.env.PORT || '(not set, will use 3000)');
 console.log('- HOST:', process.env.HOST || '(not set, will use 0.0.0.0)');
 console.log('- NODE_ENV:', process.env.NODE_ENV || '(not set)');
 console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET');
+console.log('- Auto-deploy test: GitHub → Railway integration working! ✅');
 console.log('=================================');
 
 const app = require('./src/app');
