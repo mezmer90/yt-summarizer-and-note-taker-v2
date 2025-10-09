@@ -112,7 +112,9 @@ async function loadStats() {
     document.getElementById('totalUsers').textContent = stats.total_users || 0;
     document.getElementById('freeUsers').textContent = stats.free_users || 0;
     document.getElementById('premiumUsers').textContent = stats.premium_users || 0;
+    document.getElementById('unlimitedUsers').textContent = stats.unlimited_users || 0;
     document.getElementById('managedUsers').textContent = stats.managed_users || 0;
+    document.getElementById('studentUsers').textContent = stats.student_users || 0;
     document.getElementById('videosToday').textContent = stats.videos_today || 0;
     document.getElementById('costToday').textContent = '$' + (parseFloat(stats.cost_today) || 0).toFixed(2);
   } catch (error) {
