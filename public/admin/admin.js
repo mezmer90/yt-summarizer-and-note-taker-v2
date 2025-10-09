@@ -91,7 +91,7 @@ async function loadDashboardData() {
     loadStats(),
     loadModels(),
     loadUsers(),
-    loadStudentVerifications('pending'),
+    loadStudentVerifications('all'),
     loadSettings(),
     loadLogs()
   ]);
@@ -461,7 +461,7 @@ function switchTab(tabName) {
 
 // ===== Student Verification Management =====
 
-let currentStudentFilter = 'pending';
+let currentStudentFilter = 'all';
 
 // Load student verifications
 async function loadStudentVerifications(status = 'pending') {
@@ -540,9 +540,9 @@ function renderStudentVerifications(verifications) {
                 <br><small>${v.rejection_reason}</small>
                 <br>
               `}
-              ${v.student_id_front_url ? `<a href="${v.student_id_front_url}" target="_blank" class="btn-view-doc">View ID Front</a>` : ''}
-              ${v.student_id_back_url ? `<a href="${v.student_id_back_url}" target="_blank" class="btn-view-doc">View ID Back</a>` : ''}
-              ${v.student_id_url ? `<a href="${v.student_id_url}" target="_blank" class="btn-view-doc">View ID</a>` : ''}
+              ${v.student_id_front_url ? `<button class="btn-view-image" data-image-url="${v.student_id_front_url}" data-title="Student ID - Front">View ID Front</button>` : ''}
+              ${v.student_id_back_url ? `<button class="btn-view-image" data-image-url="${v.student_id_back_url}" data-title="Student ID - Back">View ID Back</button>` : ''}
+              ${v.student_id_url ? `<button class="btn-view-image" data-image-url="${v.student_id_url}" data-title="Student ID">View ID</button>` : ''}
               <br>
               <button class="btn-delete" data-student-id="${v.id}" style="margin-top: 5px;">🗑️ Delete</button>
             </td>
@@ -647,7 +647,7 @@ document.addEventListener('click', (e) => {
   // Approve button
   if (e.target.classList.contains('btn-approve')) {
     const studentId = e.target.getAttribute('data-student-id');
-    if (studentId) {
+    if (studentId && !e.target.disabled) {
       approveStudent(parseInt(studentId));
     }
   }
@@ -667,4 +667,61 @@ document.addEventListener('click', (e) => {
       deleteStudent(parseInt(studentId));
     }
   }
+
+  // View image button
+  if (e.target.classList.contains('btn-view-image')) {
+    const imageUrl = e.target.getAttribute('data-image-url');
+    const title = e.target.getAttribute('data-title');
+    if (imageUrl) {
+      showImageModal(imageUrl, title);
+    }
+  }
 });
+
+// Show image in modal
+function showImageModal(imageUrl, title) {
+  // Create modal if it doesn't exist
+  let modal = document.getElementById('imageModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'imageModal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 20px;
+    `;
+    modal.innerHTML = `
+      <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+        <button id="closeImageModal" style="position: absolute; top: -40px; right: 0; background: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 18px;">✕ Close</button>
+        <h2 id="imageTitle" style="color: white; margin-bottom: 10px; text-align: center;"></h2>
+        <img id="modalImage" style="max-width: 100%; max-height: 85vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Close button handler
+    document.getElementById('closeImageModal').addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+      }
+    });
+  }
+
+  // Set image and title
+  document.getElementById('modalImage').src = imageUrl;
+  document.getElementById('imageTitle').textContent = title || 'Student ID';
+  modal.style.display = 'flex';
+}

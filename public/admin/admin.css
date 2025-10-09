@@ -471,18 +471,24 @@ th {
   opacity: 0.6;
 }
 
-.btn-view-doc {
+.btn-view-doc,
+.btn-view-image {
   padding: 4px 8px;
   background: #2196F3;
   color: white;
   text-decoration: none;
+  border: none;
   border-radius: 3px;
   font-size: 12px;
   display: inline-block;
   margin-top: 5px;
+  margin-right: 5px;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-.btn-view-doc:hover {
+.btn-view-doc:hover,
+.btn-view-image:hover {
   background: #0b7dda;
 }
 
