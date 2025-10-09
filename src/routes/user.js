@@ -6,7 +6,8 @@ const {
   updateUserTier,
   getUserModel,
   trackUsage,
-  getUserStats
+  getUserStats,
+  processVideo
 } = require('../controllers/userController');
 
 // Public routes (called by extension)
@@ -15,5 +16,6 @@ router.post('/user/tier', updateUserTier);
 router.get('/user/:extensionUserId/model', getUserModel);
 router.post('/user/usage', trackUsage);
 router.get('/user/:extensionUserId/stats', getUserStats);
+router.post('/user/:extensionUserId/process', processVideo); // Process video for managed users
 
 module.exports = router;
