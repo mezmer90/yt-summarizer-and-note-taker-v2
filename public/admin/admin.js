@@ -256,7 +256,7 @@ async function loadUsers() {
                   </td>
                   <td>${user.subscription_end_date ? new Date(user.subscription_end_date).toLocaleDateString() : '-'}</td>
                   <td>${user.total_videos || 0}</td>
-                  <td>$${(user.total_cost || 0).toFixed(2)}</td>
+                  <td>$${(parseFloat(user.total_cost) || 0).toFixed(2)}</td>
                   <td>${new Date(user.created_at).toLocaleDateString()}</td>
                 </tr>
               `;
@@ -608,80 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadStudentVerifications(currentStudentFilter);
     });
   });
-
-  // Email test button
-  const sendTestEmailBtn = document.getElementById('sendTestEmailBtn');
-  if (sendTestEmailBtn) {
-    sendTestEmailBtn.addEventListener('click', sendTestEmail);
-  }
 });
-
-// Send test email
-async function sendTestEmail() {
-  const emailInput = document.getElementById('testEmail');
-  const resultDiv = document.getElementById('emailTestResult');
-  const button = document.getElementById('sendTestEmailBtn');
-
-  const email = emailInput.value.trim();
-
-  if (!email) {
-    resultDiv.className = 'test-result error';
-    resultDiv.textContent = '❌ Please enter an email address';
-    return;
-  }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    resultDiv.className = 'test-result error';
-    resultDiv.textContent = '❌ Please enter a valid email address';
-    return;
-  }
-
-  try {
-    // Disable button and show loading
-    button.disabled = true;
-    button.textContent = '📤 Sending...';
-    resultDiv.className = 'test-result info';
-    resultDiv.textContent = '📧 Sending test email...';
-
-    const response = await fetch(`${API_BASE}/admin/test-email`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to send test email');
-    }
-
-    // Success
-    resultDiv.className = 'test-result success';
-    resultDiv.innerHTML = `
-      <strong>✅ Test email sent successfully!</strong><br>
-      <small>Check the inbox (and spam folder) of <strong>${email}</strong></small><br>
-      <small>From: ${data.from || 'support@aifreedomclub.com'}</small>
-    `;
-
-  } catch (error) {
-    console.error('Error sending test email:', error);
-    resultDiv.className = 'test-result error';
-    resultDiv.innerHTML = `
-      <strong>❌ Failed to send test email</strong><br>
-      <small>${error.message}</small><br>
-      <small>Check Railway logs for detailed error information.</small>
-    `;
-  } finally {
-    // Re-enable button
-    button.disabled = false;
-    button.textContent = '📨 Send Test Email';
-  }
-}
 
 // Event delegation for student verification action buttons
 document.addEventListener('click', (e) => {
