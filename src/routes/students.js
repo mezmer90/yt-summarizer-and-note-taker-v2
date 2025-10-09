@@ -8,7 +8,361 @@ const { sendStudentApprovalEmail } = require('../services/emailService');
 const otpStore = new Map(); // { email: { otp: '123456', expiresAt: timestamp, verified: false } }
 
 // Import email service functions
-const { generateVerificationCode, sendEmail } = require('../services/emailService');
+const { generateVerificationCode, sendEmail, sendStudentApprovalEmail } = require('../services/emailService');
+
+// Helper function: Send reupload request email
+async function sendReuploadEmail(email, studentName, reuploadSide) {
+  const sideText = reuploadSide === 'reupload_front' ? 'front side'
+    : reuploadSide === 'reupload_back' ? 'back side'
+    : 'both sides';
+
+  const subject = 'Student ID Verification - Reupload Required';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0;">🎓 YouTube Summarizer Pro</h1>
+        <p style="margin: 10px 0 0 0;">Student Verification Update</p>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <h2>Hello ${studentName},</h2>
+        <p>Thank you for submitting your student ID for verification. Our automated verification system has reviewed your submission.</p>
+
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0; color: #856404;"><strong>⚠️ Action Required</strong></p>
+          <p style="margin: 10px 0 0 0; color: #856404;">We need you to reupload the <strong>${sideText}</strong> of your student ID.</p>
+        </div>
+
+        <p><strong>Common issues:</strong></p>
+        <ul>
+          <li>Image is blurry or out of focus</li>
+          <li>Text is not clearly readable</li>
+          <li>Photo is cropped or incomplete</li>
+          <li>Lighting is too dark or overexposed</li>
+        </ul>
+
+        <p><strong>What to do:</strong></p>
+        <ol>
+          <li>Take a new, clear photo of your student ID (${sideText})</li>
+          <li>Make sure all text and your photo are clearly visible</li>
+          <li>Use good lighting and avoid glare</li>
+          <li>Visit the verification page to reupload</li>
+        </ol>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://aifreedomclub.com/pricing" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Reupload Student ID</a>
+        </div>
+
+        <p>If you have any questions, please contact our support team.</p>
+
+        <p>Best regards,<br>
+        The YouTube Summarizer Pro Team</p>
+      </div>
+    </div>
+  `;
+
+  await sendEmail({ to: email, subject, html });
+}
+
+// Helper function: Send rejection email
+async function sendRejectionEmail(email, studentName, reason) {
+  const subject = 'Student ID Verification - Unable to Verify';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0;">🎓 YouTube Summarizer Pro</h1>
+        <p style="margin: 10px 0 0 0;">Student Verification Update</p>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <h2>Hello ${studentName},</h2>
+        <p>Thank you for your interest in our student discount program.</p>
+
+        <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0; color: #721c24;"><strong>❌ Verification Unsuccessful</strong></p>
+          <p style="margin: 10px 0 0 0; color: #721c24;">${reason}</p>
+        </div>
+
+        <p>Unfortunately, we were unable to verify your student status based on the submitted ID.</p>
+
+        <p><strong>What you can do:</strong></p>
+        <ul>
+          <li>Ensure you are using a valid, current student ID</li>
+          <li>Make sure your ID clearly shows your name and institution</li>
+          <li>Contact support if you believe this is an error</li>
+        </ul>
+
+        <p>If you have questions or need assistance, please don't hesitate to reach out to our support team.</p>
+
+        <p>Best regards,<br>
+        The YouTube Summarizer Pro Team</p>
+      </div>
+    </div>
+  `;
+
+  await sendEmail({ to: email, subject, html });
+}
+
+// Helper function: Run automatic AI verification
+async function runAutoAIVerification(verificationId) {
+  try {
+    console.log(`🤖 Starting auto AI verification for ID ${verificationId}`);
+
+    // Get verification details
+    const verificationData = await pool.query(
+      'SELECT * FROM student_verifications WHERE id = $1',
+      [verificationId]
+    );
+
+    if (verificationData.rows.length === 0) {
+      throw new Error('Verification not found');
+    }
+
+    const verification = verificationData.rows[0];
+
+    if (!verification.student_id_front_url || !verification.student_id_back_url) {
+      throw new Error('Missing ID images');
+    }
+
+    // Update status to processing
+    await pool.query(
+      `UPDATE student_verifications SET ai_status = 'processing' WHERE id = $1`,
+      [verificationId]
+    );
+
+    // Get AI prompt from system settings
+    const promptResult = await pool.query(
+      `SELECT setting_value FROM system_settings WHERE setting_key = 'ai_verification_prompt'`
+    );
+    const aiPrompt = promptResult.rows.length > 0 && promptResult.rows[0].setting_value
+      ? promptResult.rows[0].setting_value
+      : null;
+
+    if (!aiPrompt) {
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'manual_review',
+             ai_reason = 'AI verification prompt not configured'
+         WHERE id = $1`,
+        [verificationId]
+      );
+      return;
+    }
+
+    // Get OpenRouter API key
+    const apiKeyResult = await pool.query(
+      `SELECT setting_value FROM system_settings WHERE setting_key = 'openrouter_api_key'`
+    );
+    const dbApiKey = (apiKeyResult.rows.length > 0 && apiKeyResult.rows[0].setting_value)
+      ? apiKeyResult.rows[0].setting_value
+      : '';
+    const apiKey = dbApiKey || process.env.OPENROUTER_API_KEY;
+
+    if (!apiKey) {
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'manual_review',
+             ai_reason = 'OpenRouter API key not configured'
+         WHERE id = $1`,
+        [verificationId]
+      );
+      return;
+    }
+
+    // Call OpenRouter API with GPT-4o vision
+    const fetch = require('node-fetch');
+
+    const requestBody = {
+      model: 'openai/gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: aiPrompt
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: verification.student_id_front_url
+              }
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: verification.student_id_back_url
+              }
+            }
+          ]
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 500
+    };
+
+    console.log('🤖 Calling OpenRouter API for auto AI verification...');
+
+    const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://aifreedomclub.com',
+        'X-Title': 'YouTube Summarizer Pro - Student Verification'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!openRouterResponse.ok) {
+      const errorText = await openRouterResponse.text();
+      console.error('❌ OpenRouter API error:', errorText);
+
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'failed',
+             ai_reason = 'OpenRouter API request failed'
+         WHERE id = $1`,
+        [verificationId]
+      );
+      return;
+    }
+
+    const aiResponse = await openRouterResponse.json();
+    const aiContent = aiResponse.choices[0].message.content;
+    let aiResult;
+
+    try {
+      aiResult = JSON.parse(aiContent);
+    } catch (parseError) {
+      console.error('❌ Failed to parse AI response:', aiContent);
+
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'failed',
+             ai_reason = 'Failed to parse AI response'
+         WHERE id = $1`,
+        [verificationId]
+      );
+      return;
+    }
+
+    // Calculate cost
+    const inputTokens = aiResponse.usage?.prompt_tokens || 1000;
+    const outputTokens = aiResponse.usage?.completion_tokens || 100;
+    const estimatedCost = (inputTokens / 1000000 * 2.5) + (outputTokens / 1000000 * 10);
+
+    // Update verification with AI results
+    await pool.query(
+      `UPDATE student_verifications
+       SET ai_status = $1,
+           ai_result = $2,
+           ai_confidence = $3,
+           ai_reason = $4,
+           ai_verified_at = NOW(),
+           ai_cost = $5
+       WHERE id = $6`,
+      [
+        aiResult.verification_result,
+        JSON.stringify(aiResult),
+        aiResult.confidence,
+        aiResult.reason,
+        estimatedCost,
+        verificationId
+      ]
+    );
+
+    console.log(`🤖 Auto AI Verification result for ID ${verificationId}: ${aiResult.verification_result} (${aiResult.confidence}% confidence)`);
+
+    // Handle result based on AI decision
+    const result = aiResult.verification_result;
+
+    if (result === 'approved') {
+      // Auto-approve
+      console.log(`✅ Auto-approving verification ID ${verificationId}`);
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 365); // 1 year
+
+      await pool.query(
+        `UPDATE student_verifications
+         SET status = 'approved',
+             reviewed_by = 'AI Auto-Approval',
+             reviewed_at = NOW(),
+             expires_at = $1
+         WHERE id = $2`,
+        [expiresAt, verificationId]
+      );
+
+      // Update user's student verification status
+      await pool.query(
+        `UPDATE users
+         SET student_verified = true,
+             student_verified_at = NOW(),
+             student_verification_expires_at = $1,
+             updated_at = NOW()
+         WHERE email = $2`,
+        [expiresAt, verification.email]
+      );
+
+      // Send approval email
+      try {
+        await sendStudentApprovalEmail(verification.email, expiresAt);
+        console.log(`✅ Auto-approval email sent to ${verification.email}`);
+      } catch (emailError) {
+        console.error('❌ Error sending auto-approval email:', emailError);
+      }
+
+    } else if (result === 'rejected') {
+      // Auto-reject
+      console.log(`❌ Auto-rejecting verification ID ${verificationId}`);
+
+      await pool.query(
+        `UPDATE student_verifications
+         SET status = 'rejected',
+             reviewed_by = 'AI Auto-Rejection',
+             reviewed_at = NOW(),
+             rejection_reason = $1
+         WHERE id = $2`,
+        [aiResult.reason, verificationId]
+      );
+
+      // Send rejection email
+      try {
+        await sendRejectionEmail(verification.email, verification.student_name, aiResult.reason);
+        console.log(`📧 Rejection email sent to ${verification.email}`);
+      } catch (emailError) {
+        console.error('❌ Error sending rejection email:', emailError);
+      }
+
+    } else if (result.startsWith('reupload')) {
+      // Send reupload request email
+      console.log(`⚠️ Requesting reupload for verification ID ${verificationId}: ${result}`);
+
+      try {
+        await sendReuploadEmail(verification.email, verification.student_name, result);
+        console.log(`📧 Reupload email sent to ${verification.email}`);
+      } catch (emailError) {
+        console.error('❌ Error sending reupload email:', emailError);
+      }
+    }
+
+  } catch (error) {
+    console.error(`❌ Error in auto AI verification for ID ${verificationId}:`, error);
+
+    try {
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'failed',
+             ai_reason = $1
+         WHERE id = $2`,
+        [error.message, verificationId]
+      );
+    } catch (updateError) {
+      console.error('Error updating failed status:', updateError);
+    }
+  }
+}
 
 // Send OTP to email (matching login/registration logic)
 router.post('/send-otp', async (req, res) => {
@@ -249,14 +603,23 @@ router.post('/verify', async (req, res) => {
 
     console.log(`✅ Student verification submitted by ${extension_user_id} (${email})`);
 
+    const verificationId = result.rows[0].id;
+
+    // Send response immediately
     res.json({
       success: true,
-      message: 'Student verification submitted successfully! An admin will review your request within 24 hours.',
+      message: 'Student verification submitted successfully! We are verifying your ID automatically. You will receive an email notification shortly.',
       verification: {
-        id: result.rows[0].id,
+        id: verificationId,
         email: result.rows[0].email,
         status: result.rows[0].status
       }
+    });
+
+    // Run AI verification asynchronously (don't wait for it)
+    console.log(`🤖 Triggering automatic AI verification for ID ${verificationId}`);
+    runAutoAIVerification(verificationId).catch(err => {
+      console.error(`❌ Auto AI verification failed for ID ${verificationId}:`, err);
     });
 
   } catch (error) {

@@ -18,7 +18,11 @@ SELECT
   (SELECT SUM(tokens_used) FROM user_usage WHERE date = CURRENT_DATE) as tokens_today,
   (SELECT SUM(cost_incurred) FROM user_usage WHERE date = CURRENT_DATE) as cost_today,
   (SELECT SUM(videos_processed) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as videos_30d,
-  (SELECT SUM(cost_incurred) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as cost_30d;
+  (SELECT SUM(cost_incurred) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as cost_30d,
+  (SELECT COALESCE(SUM(ai_cost), 0) FROM student_verifications WHERE ai_verified_at >= CURRENT_DATE) as ai_cost_today,
+  (SELECT COALESCE(SUM(ai_cost), 0) FROM student_verifications WHERE ai_verified_at >= CURRENT_DATE - INTERVAL '30 days') as ai_cost_30d,
+  (SELECT COUNT(*) FROM student_verifications WHERE ai_status = 'approved' AND ai_verified_at >= CURRENT_DATE) as ai_approved_today,
+  (SELECT COUNT(*) FROM student_verifications WHERE ai_verified_at >= CURRENT_DATE) as ai_verifications_today;
 
 -- Drop the old user_details view first to avoid column conflicts
 DROP VIEW IF EXISTS user_details;

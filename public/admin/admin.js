@@ -117,6 +117,8 @@ async function loadStats() {
     document.getElementById('studentUsers').textContent = stats.student_users || 0;
     document.getElementById('videosToday').textContent = stats.videos_today || 0;
     document.getElementById('costToday').textContent = '$' + (parseFloat(stats.cost_today) || 0).toFixed(2);
+    document.getElementById('aiVerificationsToday').textContent = stats.ai_verifications_today || 0;
+    document.getElementById('aiCostToday').textContent = '$' + (parseFloat(stats.ai_cost_today) || 0).toFixed(4);
   } catch (error) {
     console.error('Error loading stats:', error);
   }
