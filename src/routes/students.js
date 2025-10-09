@@ -5,6 +5,124 @@ const { requireAdmin } = require('../middleware/auth');
 const crypto = require('crypto');
 const { sendStudentVerificationEmail, sendStudentApprovalEmail } = require('../services/emailService');
 
+// Store OTPs temporarily (in production, use Redis or database)
+const otpStore = new Map(); // { email: { otp: '123456', expiresAt: timestamp, verified: false } }
+
+// Send OTP to email
+router.post('/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Store OTP
+    otpStore.set(email, { otp, expiresAt, verified: false });
+
+    // Send OTP via email using Resend
+    const { Resend } = require('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    await resend.emails.send({
+      from: 'YouTube Summarizer Pro <noreply@seoorb.com>',
+      to: email,
+      subject: 'Student Verification - Email OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #667eea;">🎓 Student Verification</h2>
+          <p>Your OTP code for student verification is:</p>
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="color: #667eea; font-size: 36px; letter-spacing: 8px; margin: 0;">${otp}</h1>
+          </div>
+          <p>This code will expire in <strong>10 minutes</strong>.</p>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+            If you didn't request this code, please ignore this email.
+          </p>
+        </div>
+      `
+    });
+
+    console.log(`✅ OTP sent to ${email}: ${otp}`);
+
+    res.json({
+      success: true,
+      message: 'OTP sent to your email. Please check your inbox.',
+      expiresIn: 600 // 10 minutes in seconds
+    });
+
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP. Please try again.'
+    });
+  }
+});
+
+// Verify OTP
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required'
+      });
+    }
+
+    const stored = otpStore.get(email);
+
+    if (!stored) {
+      return res.status(400).json({
+        success: false,
+        message: 'No OTP found for this email. Please request a new one.'
+      });
+    }
+
+    if (Date.now() > stored.expiresAt) {
+      otpStore.delete(email);
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.'
+      });
+    }
+
+    if (stored.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP. Please try again.'
+      });
+    }
+
+    // Mark as verified
+    stored.verified = true;
+    otpStore.set(email, stored);
+
+    console.log(`✅ Email verified for ${email}`);
+
+    res.json({
+      success: true,
+      message: 'Email verified successfully!'
+    });
+
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP. Please try again.'
+    });
+  }
+});
+
 // Submit student verification request
 router.post('/verify', async (req, res) => {
   try {
@@ -68,10 +186,19 @@ router.post('/verify', async (req, res) => {
       });
     }
 
+    // Check if email is verified via OTP
+    const otpData = otpStore.get(email);
+    if (!otpData || !otpData.verified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please verify your email with OTP before submitting'
+      });
+    }
+
     // Check if user already has a pending or approved request
     const existingRequest = await pool.query(
-      'SELECT * FROM student_verifications WHERE extension_user_id = $1 AND status IN ($2, $3, $4)',
-      [extension_user_id, 'email_pending', 'pending', 'approved']
+      'SELECT * FROM student_verifications WHERE extension_user_id = $1 AND status IN ($2, $3)',
+      [extension_user_id, 'pending', 'approved']
     );
 
     if (existingRequest.rows.length > 0) {
@@ -81,38 +208,26 @@ router.post('/verify', async (req, res) => {
         success: false,
         message: status === 'approved'
           ? 'You already have an approved student verification'
-          : status === 'email_pending'
-          ? 'Please check your email and click the verification link'
           : 'You already have a pending verification request',
         existingStatus: status
       });
     }
 
-    // Generate verification token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    // Insert new verification request with email_pending status
+    // Insert new verification request with pending status (email already verified via OTP)
     const result = await pool.query(
       `INSERT INTO student_verifications
        (extension_user_id, email, student_name, university_name, graduation_year,
         student_id_front_url, student_id_back_url,
-        status, email_verified, verification_token, token_expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        status, email_verified)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [extension_user_id, email, student_name, university_name, graduation_year,
        student_id_front_url, student_id_back_url,
-       'email_pending', false, verificationToken, tokenExpiresAt]
+       'pending', true]
     );
 
-    // Send verification email
-    try {
-      await sendStudentVerificationEmail(email, verificationToken);
-      console.log(`✅ Verification email sent to ${email}`);
-    } catch (emailError) {
-      console.error('❌ Error sending verification email:', emailError);
-      // Continue even if email fails - user can contact support
-    }
+    // Clear OTP after successful submission
+    otpStore.delete(email);
 
     // Update rate limit tracking
     await pool.query(
@@ -127,7 +242,7 @@ router.post('/verify', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Verification email sent! Please check your inbox and click the link to verify your email.',
+      message: 'Student verification submitted successfully! An admin will review your request within 24 hours.',
       verification: {
         id: result.rows[0].id,
         email: result.rows[0].email,
