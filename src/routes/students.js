@@ -974,18 +974,25 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
 
     const verificationData = verification.rows[0];
 
+    console.log(`🗑️ Deleting verification for user: ${verificationData.extension_user_id}, email: ${verificationData.email}`);
+
     // Reset user's student verification status in users table
-    await pool.query(
+    const updateResult = await pool.query(
       `UPDATE users
        SET student_verified = false,
            student_verified_at = NULL,
            student_verification_expires_at = NULL,
            updated_at = NOW()
-       WHERE extension_user_id = $1 OR email = $2`,
+       WHERE extension_user_id = $1 OR email = $2
+       RETURNING extension_user_id, email, student_verified`,
       [verificationData.extension_user_id, verificationData.email]
     );
 
-    console.log(`✅ Reset student verification status for user: ${verificationData.extension_user_id}`);
+    if (updateResult.rows.length > 0) {
+      console.log(`✅ Reset student verification status for user:`, updateResult.rows[0]);
+    } else {
+      console.warn(`⚠️ No user found to update with extension_user_id: ${verificationData.extension_user_id} or email: ${verificationData.email}`);
+    }
 
     // Delete the verification
     await pool.query(
