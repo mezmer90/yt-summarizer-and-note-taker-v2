@@ -18,6 +18,35 @@ router.post('/verify', async (req, res) => {
       student_id_back_url
     } = req.body;
 
+    // Get IP address (works with proxies/Railway)
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+                      req.headers['x-real-ip'] ||
+                      req.connection.remoteAddress ||
+                      req.socket.remoteAddress;
+
+    console.log(`📝 Student verification request from IP: ${ipAddress}`);
+
+    // Rate limiting: Check if this IP submitted in the last 10 minutes
+    const rateLimitCheck = await pool.query(
+      `SELECT * FROM student_verification_rate_limit
+       WHERE ip_address = $1
+       AND last_submission_at > NOW() - INTERVAL '10 minutes'`,
+      [ipAddress]
+    );
+
+    if (rateLimitCheck.rows.length > 0) {
+      const lastSubmission = new Date(rateLimitCheck.rows[0].last_submission_at);
+      const now = new Date();
+      const minutesRemaining = Math.ceil(10 - (now - lastSubmission) / 60000);
+
+      console.log(`⚠️  Rate limit exceeded for IP: ${ipAddress}`);
+      return res.status(429).json({
+        success: false,
+        message: `Too many requests. Please wait ${minutesRemaining} minute(s) before submitting again.`,
+        minutesRemaining
+      });
+    }
+
     if (!extension_user_id || !email) {
       return res.status(400).json({
         success: false,
@@ -47,13 +76,15 @@ router.post('/verify', async (req, res) => {
 
     if (existingRequest.rows.length > 0) {
       const status = existingRequest.rows[0].status;
+      console.log(`⚠️  User ${extension_user_id} already has ${status} verification`);
       return res.status(400).json({
         success: false,
         message: status === 'approved'
           ? 'You already have an approved student verification'
           : status === 'email_pending'
           ? 'Please check your email and click the verification link'
-          : 'You already have a pending verification request'
+          : 'You already have a pending verification request',
+        existingStatus: status
       });
     }
 
@@ -82,6 +113,17 @@ router.post('/verify', async (req, res) => {
       console.error('❌ Error sending verification email:', emailError);
       // Continue even if email fails - user can contact support
     }
+
+    // Update rate limit tracking
+    await pool.query(
+      `INSERT INTO student_verification_rate_limit (ip_address, last_submission_at, submission_count)
+       VALUES ($1, NOW(), 1)
+       ON CONFLICT (ip_address) DO UPDATE
+       SET last_submission_at = NOW(), submission_count = student_verification_rate_limit.submission_count + 1`,
+      [ipAddress]
+    );
+
+    console.log(`✅ Student verification submitted by ${extension_user_id} (${email})`);
 
     res.json({
       success: true,

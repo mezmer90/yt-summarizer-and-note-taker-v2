@@ -62,11 +62,26 @@ async function updateUsersStudentVerification() {
   }
 }
 
+// Create rate limit table for student verification
+async function createRateLimitTable() {
+  try {
+    const migrationSQL = fs.readFileSync(
+      path.join(__dirname, 'src/models/create_rate_limit_table.sql'),
+      'utf8'
+    );
+    await pool.query(migrationSQL);
+    console.log('✅ Rate limit table created successfully');
+  } catch (error) {
+    console.error('⚠️  Error creating rate limit table:', error.message);
+  }
+}
+
 // Initialize database and admin user on startup
 async function initializeServer() {
   await updateDatabaseViews();
   await updateStudentVerificationsTable();
   await updateUsersStudentVerification();
+  await createRateLimitTable();
   await initializeAdminUser();
 }
 
