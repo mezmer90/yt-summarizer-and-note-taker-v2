@@ -1021,6 +1021,64 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Admin: Manually reset user's student verification status by email
+router.post('/admin/reset-user-status', requireAdmin, async (req, res) => {
+  try {
+    const { email } = req.body;
+    const adminEmail = req.admin.email;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    console.log(`🔄 Manually resetting student verification for email: ${email}`);
+
+    // Reset user's student verification status
+    const updateResult = await pool.query(
+      `UPDATE users
+       SET student_verified = false,
+           student_verified_at = NULL,
+           student_verification_expires_at = NULL,
+           updated_at = NOW()
+       WHERE email = $1
+       RETURNING extension_user_id, email, student_verified`,
+      [email]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `No user found with email: ${email}`
+      });
+    }
+
+    console.log(`✅ Reset student verification for:`, updateResult.rows[0]);
+
+    // Log admin action
+    await pool.query(
+      `INSERT INTO admin_actions (admin_email, action, target_entity, target_id, details)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [adminEmail, 'reset_user_student_status', 'users', updateResult.rows[0].extension_user_id, JSON.stringify({ email, reset_by: adminEmail })]
+    );
+
+    res.json({
+      success: true,
+      message: 'User student verification status reset successfully',
+      user: updateResult.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error resetting user status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset user status'
+    });
+  }
+});
+
 // Admin: AI Verify Student ID
 router.post('/admin/ai-verify/:id', requireAdmin, async (req, res) => {
   try {
