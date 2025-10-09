@@ -226,6 +226,7 @@ async function loadUsers() {
               <th>Videos</th>
               <th>Cost</th>
               <th>Created</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -287,6 +288,11 @@ async function loadUsers() {
                   <td>${user.total_videos || 0}</td>
                   <td>$${(parseFloat(user.total_cost) || 0).toFixed(2)}</td>
                   <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                  <td>
+                    ${isStudentVerified || user.student_verified
+                      ? `<button class="btn-reset-status" data-user-email="${user.email}" style="background: #f59e0b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Reset Student Status</button>`
+                      : '<span style="color: #999; font-size: 12px;">-</span>'}
+                  </td>
                 </tr>
               `;
             }).join('')}
@@ -685,6 +691,39 @@ async function deleteStudent(id) {
   }
 }
 
+// Reset user's student verification status
+async function resetUserStudentStatus(email) {
+  if (!confirm(`⚠️ Reset student verification status for ${email}?\n\nThis will set student_verified to false and clear verification dates.\n\nThe user will no longer have student discount access.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/students/admin/reset-user-status`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.message);
+
+    alert(`✅ Student verification status reset for ${email}`);
+
+    // Reload users and stats to reflect the change
+    await Promise.all([
+      loadUsers(),
+      loadStats()
+    ]);
+  } catch (error) {
+    console.error('Error resetting user status:', error);
+    alert('❌ Error: ' + error.message);
+  }
+}
+
 // AI Verify student ID
 async function aiVerifyStudent(id) {
   if (!confirm('Run AI verification on this student ID? This will analyze both front and back images using GPT-4o vision.')) {
@@ -776,6 +815,14 @@ document.addEventListener('click', (e) => {
     const studentId = e.target.getAttribute('data-student-id');
     if (studentId) {
       aiVerifyStudent(parseInt(studentId));
+    }
+  }
+
+  // Reset Student Status button
+  if (e.target.classList.contains('btn-reset-status')) {
+    const userEmail = e.target.getAttribute('data-user-email');
+    if (userEmail) {
+      resetUserStudentStatus(userEmail);
     }
   }
 });
