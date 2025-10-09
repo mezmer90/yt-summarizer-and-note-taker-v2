@@ -134,10 +134,8 @@ async function initializeServer() {
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-// Run initialization
-initializeServer();
-
 let isShuttingDown = false;
+let server;
 
 // Graceful shutdown handler
 const shutdown = async (signal) => {
@@ -168,26 +166,40 @@ const shutdown = async (signal) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-// Start server - bind to 0.0.0.0 for Railway
-const server = app.listen(PORT, HOST, () => {
-  console.log('=================================');
-  console.log('🚀 Server is running!');
-  console.log(`📡 Host: ${HOST}`);
-  console.log(`📡 Port: ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://${HOST}:${PORT}/health`);
-  console.log(`👨‍💼 Admin dashboard: http://${HOST}:${PORT}/admin`);
-  console.log('=================================');
-});
+// Start server after initialization
+async function startServer() {
+  try {
+    // Run initialization first
+    await initializeServer();
 
-// Handle server errors
-server.on('error', (error) => {
-  console.error('❌ Server error:', error);
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use`);
+    // Then start the server - bind to 0.0.0.0 for Railway
+    server = app.listen(PORT, HOST, () => {
+      console.log('=================================');
+      console.log('🚀 Server is running!');
+      console.log(`📡 Host: ${HOST}`);
+      console.log(`📡 Port: ${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔗 Health check: http://${HOST}:${PORT}/health`);
+      console.log(`👨‍💼 Admin dashboard: http://${HOST}:${PORT}/admin`);
+      console.log('=================================');
+    });
+
+    // Handle server errors
+    server.on('error', (error) => {
+      console.error('❌ Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use`);
+      }
+      process.exit(1);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
   }
-  process.exit(1);
-});
+}
+
+// Start the server
+startServer();
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
