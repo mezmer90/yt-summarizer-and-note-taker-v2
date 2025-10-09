@@ -228,7 +228,11 @@ async function runAutoAIVerification(verificationId) {
     }
 
     const aiResponse = await openRouterResponse.json();
-    const aiContent = aiResponse.choices[0].message.content;
+    let aiContent = aiResponse.choices[0].message.content;
+
+    // Strip markdown code blocks if present (```json ... ``` or ``` ... ```)
+    aiContent = aiContent.replace(/^```(?:json)?\s*\n?/,'').replace(/\n?```\s*$/,'').trim();
+
     let aiResult;
 
     try {
@@ -1100,7 +1104,11 @@ router.post('/admin/ai-verify/:id', requireAdmin, async (req, res) => {
     console.log('✅ OpenRouter API response received');
 
     // Extract the AI's response
-    const aiContent = aiResponse.choices[0].message.content;
+    let aiContent = aiResponse.choices[0].message.content;
+
+    // Strip markdown code blocks if present (```json ... ``` or ``` ... ```)
+    aiContent = aiContent.replace(/^```(?:json)?\s*\n?/,'').replace(/\n?```\s*$/,'').trim();
+
     let aiResult;
 
     try {
