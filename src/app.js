@@ -38,6 +38,11 @@ app.use(cors({
       return callback(null, true);
     }
 
+    // Allow YouTube origins (for content script requests)
+    if (origin && origin.includes('youtube.com')) {
+      return callback(null, true);
+    }
+
     // Check if origin is in allowed list
     if (origin && allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
