@@ -182,7 +182,7 @@ SELECT
   (SELECT SUM(videos_processed) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as videos_30d,
   (SELECT SUM(cost_incurred) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as cost_30d;
 
--- View for User Details
+-- View for User Details (includes Stripe information)
 CREATE OR REPLACE VIEW user_details AS
 SELECT
   u.id,
@@ -191,6 +191,13 @@ SELECT
   u.tier,
   u.plan_name,
   u.subscription_status,
+  u.stripe_customer_id,
+  u.stripe_subscription_id,
+  u.stripe_price_id,
+  u.subscription_start_date,
+  u.subscription_end_date,
+  u.subscription_cancel_at,
+  u.trial_end_date,
   mc.model_name as assigned_model,
   mc.model_id,
   COALESCE(SUM(uu.videos_processed), 0) as total_videos,

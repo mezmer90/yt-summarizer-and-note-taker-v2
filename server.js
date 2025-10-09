@@ -14,10 +14,30 @@ console.log('=================================');
 
 const app = require('./src/app');
 const { pool } = require('./src/config/database');
+const fs = require('fs');
+const path = require('path');
+
+// Update database views on startup
+async function updateDatabaseViews() {
+  try {
+    const viewSQL = fs.readFileSync(
+      path.join(__dirname, 'src/models/update_user_details_view.sql'),
+      'utf8'
+    );
+    await pool.query(viewSQL);
+    console.log('✅ Database views updated successfully');
+  } catch (error) {
+    console.error('⚠️  Error updating database views:', error.message);
+    // Don't crash the server if view update fails
+  }
+}
 
 // Use Railway's assigned PORT or fallback to 3000
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+
+// Update views on startup
+updateDatabaseViews();
 
 let isShuttingDown = false;
 

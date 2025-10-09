@@ -197,7 +197,7 @@ async function updateModel(tier) {
 // Load users
 async function loadUsers() {
   try {
-    const response = await fetch(`${API_BASE}/admin/users?limit=50`, {
+    const response = await fetch(`${API_BASE}/admin/users?limit=100`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 
@@ -207,33 +207,72 @@ async function loadUsers() {
     const usersContainer = document.getElementById('usersList');
 
     usersContainer.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>User ID</th>
-            <th>Email</th>
-            <th>Tier</th>
-            <th>Plan</th>
-            <th>Videos</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${data.users.map(user => `
+      <div class="table-wrapper">
+        <table class="users-table">
+          <thead>
             <tr>
-              <td>${user.extension_user_id}</td>
-              <td>${user.email || '-'}</td>
-              <td><strong>${user.tier}</strong></td>
-              <td>${user.plan_name || '-'}</td>
-              <td>${user.total_videos}</td>
-              <td>${new Date(user.created_at).toLocaleDateString()}</td>
+              <th>Email</th>
+              <th>Tier</th>
+              <th>Plan Name</th>
+              <th>Status</th>
+              <th>Stripe Customer</th>
+              <th>Subscription ID</th>
+              <th>Period End</th>
+              <th>Videos</th>
+              <th>Cost</th>
+              <th>Created</th>
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${data.users.map(user => {
+              const isActive = user.subscription_status === 'active';
+              const isCanceling = user.subscription_cancel_at;
+
+              return `
+                <tr class="${isActive ? 'user-active' : 'user-inactive'}">
+                  <td class="email-cell">
+                    <strong>${user.email || 'No email'}</strong>
+                    <br><small class="user-id">${user.extension_user_id.substring(0, 20)}...</small>
+                  </td>
+                  <td>
+                    <span class="tier-badge tier-${user.tier}">${user.tier.toUpperCase()}</span>
+                  </td>
+                  <td>${user.plan_name || '-'}</td>
+                  <td>
+                    <span class="status-badge status-${user.subscription_status || 'none'}">
+                      ${(user.subscription_status || 'none').toUpperCase()}
+                    </span>
+                    ${isCanceling ? '<br><small class="text-warning">⚠️ Canceling</small>' : ''}
+                  </td>
+                  <td>
+                    ${user.stripe_customer_id
+                      ? `<a href="https://dashboard.stripe.com/customers/${user.stripe_customer_id}" target="_blank" class="stripe-link">${user.stripe_customer_id.substring(0, 12)}...</a>`
+                      : '<span class="text-muted">-</span>'}
+                  </td>
+                  <td>
+                    ${user.stripe_subscription_id
+                      ? `<a href="https://dashboard.stripe.com/subscriptions/${user.stripe_subscription_id}" target="_blank" class="stripe-link">${user.stripe_subscription_id.substring(0, 12)}...</a>`
+                      : '<span class="text-muted">-</span>'}
+                  </td>
+                  <td>${user.subscription_end_date ? new Date(user.subscription_end_date).toLocaleDateString() : '-'}</td>
+                  <td>${user.total_videos || 0}</td>
+                  <td>$${(user.total_cost || 0).toFixed(2)}</td>
+                  <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination-info">
+        Showing ${data.users.length} of ${data.pagination?.totalUsers || data.users.length} users
+      </div>
     `;
   } catch (error) {
     console.error('Error loading users:', error);
+    document.getElementById('usersList').innerHTML = `
+      <div class="error-message">❌ Failed to load users: ${error.message}</div>
+    `;
   }
 }
 
