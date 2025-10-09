@@ -484,9 +484,10 @@ function renderStudentVerifications(verifications) {
       <thead>
         <tr>
           <th>ID</th>
+          <th>Student Name</th>
           <th>Email</th>
           <th>University</th>
-          <th>Graduation Year</th>
+          <th>Grad Year</th>
           <th>Status</th>
           <th>Requested</th>
           <th>Actions</th>
@@ -496,6 +497,7 @@ function renderStudentVerifications(verifications) {
         ${verifications.map(v => `
           <tr>
             <td>#${v.id}</td>
+            <td>${v.student_name || 'N/A'}</td>
             <td>${v.email}</td>
             <td>${v.university_name || 'N/A'}</td>
             <td>${v.graduation_year || 'N/A'}</td>
@@ -503,7 +505,7 @@ function renderStudentVerifications(verifications) {
               <span class="status-badge status-${v.status}">${v.status.toUpperCase()}</span>
             </td>
             <td>${new Date(v.requested_at).toLocaleDateString()}</td>
-            <td>
+            <td class="actions-cell">
               ${v.status === 'pending' || v.status === 'email_pending' ? `
                 <button class="btn-approve" data-student-id="${v.id}" ${v.status === 'email_pending' ? 'disabled title="Email not verified yet"' : ''}>✓ Approve</button>
                 <button class="btn-reject" data-student-id="${v.id}">✗ Reject</button>
@@ -517,7 +519,10 @@ function renderStudentVerifications(verifications) {
                 <br><small>${v.rejection_reason}</small>
                 <br>
               `}
+              ${v.student_id_front_url ? `<a href="${v.student_id_front_url}" target="_blank" class="btn-view-doc">View ID Front</a>` : ''}
+              ${v.student_id_back_url ? `<a href="${v.student_id_back_url}" target="_blank" class="btn-view-doc">View ID Back</a>` : ''}
               ${v.student_id_url ? `<a href="${v.student_id_url}" target="_blank" class="btn-view-doc">View ID</a>` : ''}
+              <br>
               <button class="btn-delete" data-student-id="${v.id}" style="margin-top: 5px;">🗑️ Delete</button>
             </td>
           </tr>

@@ -8,12 +8,34 @@ const { sendStudentVerificationEmail, sendStudentApprovalEmail } = require('../s
 // Submit student verification request
 router.post('/verify', async (req, res) => {
   try {
-    const { extension_user_id, email, university_name, graduation_year, student_id_url } = req.body;
+    const {
+      extension_user_id,
+      email,
+      student_name,
+      university_name,
+      graduation_year,
+      student_id_front_url,
+      student_id_back_url
+    } = req.body;
 
     if (!extension_user_id || !email) {
       return res.status(400).json({
         success: false,
         message: 'Extension user ID and email are required'
+      });
+    }
+
+    if (!student_name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student name is required'
+      });
+    }
+
+    if (!student_id_front_url || !student_id_back_url) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both front and back images of student ID are required'
       });
     }
 
@@ -42,11 +64,13 @@ router.post('/verify', async (req, res) => {
     // Insert new verification request with email_pending status
     const result = await pool.query(
       `INSERT INTO student_verifications
-       (extension_user_id, email, university_name, graduation_year, student_id_url,
+       (extension_user_id, email, student_name, university_name, graduation_year,
+        student_id_front_url, student_id_back_url,
         status, email_verified, verification_token, token_expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [extension_user_id, email, university_name, graduation_year, student_id_url,
+      [extension_user_id, email, student_name, university_name, graduation_year,
+       student_id_front_url, student_id_back_url,
        'email_pending', false, verificationToken, tokenExpiresAt]
     );
 

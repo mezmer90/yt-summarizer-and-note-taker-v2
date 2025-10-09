@@ -33,9 +33,25 @@ async function updateDatabaseViews() {
   }
 }
 
+// Update student verifications table
+async function updateStudentVerificationsTable() {
+  try {
+    const migrationSQL = fs.readFileSync(
+      path.join(__dirname, 'src/models/update_student_verifications.sql'),
+      'utf8'
+    );
+    await pool.query(migrationSQL);
+    console.log('✅ Student verifications table updated successfully');
+  } catch (error) {
+    console.error('⚠️  Error updating student verifications table:', error.message);
+    // Don't crash the server if migration fails
+  }
+}
+
 // Initialize database and admin user on startup
 async function initializeServer() {
   await updateDatabaseViews();
+  await updateStudentVerificationsTable();
   await initializeAdminUser();
 }
 
