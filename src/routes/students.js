@@ -588,4 +588,244 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Admin: AI Verify Student ID
+router.post('/admin/ai-verify/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.admin.email;
+
+    // Get verification details
+    const verificationData = await pool.query(
+      'SELECT * FROM student_verifications WHERE id = $1',
+      [id]
+    );
+
+    if (verificationData.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Verification request not found'
+      });
+    }
+
+    const verification = verificationData.rows[0];
+
+    if (!verification.student_id_front_url || !verification.student_id_back_url) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both front and back ID images are required for AI verification'
+      });
+    }
+
+    // Update status to processing
+    await pool.query(
+      `UPDATE student_verifications SET ai_status = 'processing' WHERE id = $1`,
+      [id]
+    );
+
+    // Get AI prompt from system settings
+    const promptResult = await pool.query(
+      `SELECT setting_value FROM system_settings WHERE setting_key = 'ai_verification_prompt'`
+    );
+    const aiPrompt = promptResult.rows.length > 0 && promptResult.rows[0].setting_value
+      ? promptResult.rows[0].setting_value
+      : null;
+
+    if (!aiPrompt) {
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'manual_review',
+             ai_reason = 'AI verification prompt not configured'
+         WHERE id = $1`,
+        [id]
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: 'AI verification prompt not configured in admin settings.'
+      });
+    }
+
+    // Get OpenRouter API key (from system settings override, or Railway env variable)
+    const apiKeyResult = await pool.query(
+      `SELECT setting_value FROM system_settings WHERE setting_key = 'openrouter_api_key'`
+    );
+    const dbApiKey = (apiKeyResult.rows.length > 0 && apiKeyResult.rows[0].setting_value)
+      ? apiKeyResult.rows[0].setting_value
+      : '';
+    const apiKey = dbApiKey || process.env.OPENROUTER_API_KEY;
+
+    if (!apiKey) {
+      // Update status to failed
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'manual_review',
+             ai_reason = 'OpenRouter API key not configured'
+         WHERE id = $1`,
+        [id]
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: 'OpenRouter API key not configured. Please add it to Railway environment variables or admin settings.'
+      });
+    }
+
+    // Call OpenRouter API with GPT-4o vision
+    const fetch = require('node-fetch');
+
+    const requestBody = {
+      model: 'openai/gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: aiPrompt
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: verification.student_id_front_url
+              }
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: verification.student_id_back_url
+              }
+            }
+          ]
+        }
+      ],
+      temperature: 0.1, // Low temperature for consistent results
+      max_tokens: 500
+    };
+
+    console.log('🤖 Calling OpenRouter API for AI verification...');
+
+    const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://aifreedomclub.com',
+        'X-Title': 'YouTube Summarizer Pro - Student Verification'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!openRouterResponse.ok) {
+      const errorText = await openRouterResponse.text();
+      console.error('❌ OpenRouter API error:', errorText);
+
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'failed',
+             ai_reason = 'OpenRouter API request failed'
+         WHERE id = $1`,
+        [id]
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: 'AI verification failed. OpenRouter API error.',
+        error: errorText
+      });
+    }
+
+    const aiResponse = await openRouterResponse.json();
+    console.log('✅ OpenRouter API response received');
+
+    // Extract the AI's response
+    const aiContent = aiResponse.choices[0].message.content;
+    let aiResult;
+
+    try {
+      // Parse the JSON response from AI
+      aiResult = JSON.parse(aiContent);
+    } catch (parseError) {
+      console.error('❌ Failed to parse AI response:', aiContent);
+
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'failed',
+             ai_reason = 'Failed to parse AI response'
+         WHERE id = $1`,
+        [id]
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: 'AI verification failed. Could not parse AI response.',
+        aiContent
+      });
+    }
+
+    // Calculate cost (GPT-4o vision: ~$2.50 per 1M input tokens, ~$10 per 1M output tokens)
+    // Rough estimate: ~1000 tokens for 2 images + prompt, ~100 tokens output
+    const inputTokens = aiResponse.usage?.prompt_tokens || 1000;
+    const outputTokens = aiResponse.usage?.completion_tokens || 100;
+    const estimatedCost = (inputTokens / 1000000 * 2.5) + (outputTokens / 1000000 * 10);
+
+    // Update verification with AI results
+    await pool.query(
+      `UPDATE student_verifications
+       SET ai_status = $1,
+           ai_result = $2,
+           ai_confidence = $3,
+           ai_reason = $4,
+           ai_verified_at = NOW(),
+           ai_cost = $5
+       WHERE id = $6`,
+      [
+        aiResult.verification_result,
+        JSON.stringify(aiResult),
+        aiResult.confidence,
+        aiResult.reason,
+        estimatedCost,
+        id
+      ]
+    );
+
+    console.log(`🤖 AI Verification result for ID ${id}: ${aiResult.verification_result} (${aiResult.confidence}% confidence)`);
+
+    // Log admin action
+    await pool.query(
+      `INSERT INTO admin_actions (admin_email, action, target_entity, target_id, details)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [adminEmail, 'ai_verify_student', 'student_verifications', id, JSON.stringify(aiResult)]
+    );
+
+    res.json({
+      success: true,
+      message: 'AI verification completed',
+      ai_result: aiResult,
+      cost: estimatedCost
+    });
+
+  } catch (error) {
+    console.error('Error in AI verification:', error);
+
+    // Update status to failed
+    try {
+      await pool.query(
+        `UPDATE student_verifications
+         SET ai_status = 'failed',
+             ai_reason = $1
+         WHERE id = $2`,
+        [error.message, req.params.id]
+      );
+    } catch (updateError) {
+      console.error('Error updating failed status:', updateError);
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to run AI verification',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

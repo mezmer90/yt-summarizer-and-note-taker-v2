@@ -511,12 +511,30 @@ function renderStudentVerifications(verifications) {
           <th>University</th>
           <th>Grad Year</th>
           <th>Status</th>
+          <th>AI Status</th>
           <th>Requested</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        ${verifications.map(v => `
+        ${verifications.map(v => {
+          // AI status badge logic
+          let aiStatusBadge = '<span class="status-badge status-none">Not Run</span>';
+          if (v.ai_status) {
+            if (v.ai_status === 'approved') {
+              aiStatusBadge = `<span class="status-badge status-active" title="${v.ai_reason}">✓ Approved (${v.ai_confidence}%)</span>`;
+            } else if (v.ai_status === 'processing') {
+              aiStatusBadge = '<span class="status-badge status-pending">⏳ Processing...</span>';
+            } else if (v.ai_status === 'rejected') {
+              aiStatusBadge = `<span class="status-badge status-rejected" title="${v.ai_reason}">✗ Rejected (${v.ai_confidence}%)</span>`;
+            } else if (v.ai_status.startsWith('reupload')) {
+              aiStatusBadge = `<span class="status-badge status-warning" title="${v.ai_reason}">⚠️ Reupload ${v.ai_status.replace('reupload_', '').toUpperCase()}</span>`;
+            } else if (v.ai_status === 'failed' || v.ai_status === 'manual_review') {
+              aiStatusBadge = `<span class="status-badge status-none" title="${v.ai_reason}">⚠️ ${v.ai_status === 'failed' ? 'Failed' : 'Manual Review'}</span>`;
+            }
+          }
+
+          return `
           <tr>
             <td>#${v.id}</td>
             <td>${v.student_name || 'N/A'}</td>
@@ -530,6 +548,11 @@ function renderStudentVerifications(verifications) {
             <td>${v.graduation_year || 'N/A'}</td>
             <td>
               <span class="status-badge status-${v.status}">${v.status.toUpperCase()}</span>
+            </td>
+            <td>
+              ${aiStatusBadge}
+              ${v.ai_verified_at ? `<br><small>Verified: ${new Date(v.ai_verified_at).toLocaleDateString()}</small>` : ''}
+              ${v.ai_cost ? `<br><small>Cost: $${parseFloat(v.ai_cost).toFixed(4)}</small>` : ''}
             </td>
             <td>${new Date(v.requested_at).toLocaleDateString()}</td>
             <td class="actions-cell">
@@ -550,10 +573,11 @@ function renderStudentVerifications(verifications) {
               ${v.student_id_back_url ? `<button class="btn-view-image" data-image-url="${v.student_id_back_url}" data-title="Student ID - Back">View ID Back</button>` : ''}
               ${v.student_id_url ? `<button class="btn-view-image" data-image-url="${v.student_id_url}" data-title="Student ID">View ID</button>` : ''}
               <br>
+              ${(v.student_id_front_url && v.student_id_back_url) ? `<button class="btn-ai-verify" data-student-id="${v.id}" style="margin-top: 5px;">🤖 ${v.ai_status ? 'Re-run' : 'Run'} AI Verification</button><br>` : ''}
               <button class="btn-delete" data-student-id="${v.id}" style="margin-top: 5px;">🗑️ Delete</button>
             </td>
           </tr>
-        `).join('')}
+        `;}).join('')}
       </tbody>
     </table>
   `;
@@ -636,6 +660,45 @@ async function deleteStudent(id) {
   }
 }
 
+// AI Verify student ID
+async function aiVerifyStudent(id) {
+  if (!confirm('Run AI verification on this student ID? This will analyze both front and back images using GPT-4o vision.')) {
+    return;
+  }
+
+  try {
+    // Show processing message
+    alert('⏳ AI verification started. This may take 10-30 seconds...');
+
+    const response = await fetch(`${API_BASE}/students/admin/ai-verify/${id}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.message);
+
+    const result = data.ai_result;
+    const cost = data.cost;
+
+    // Show result with details
+    let resultMessage = `🤖 AI Verification Complete!\n\n`;
+    resultMessage += `Result: ${result.verification_result.toUpperCase()}\n`;
+    resultMessage += `Confidence: ${result.confidence}%\n`;
+    resultMessage += `Reason: ${result.reason}\n`;
+    resultMessage += `Cost: $${cost.toFixed(4)}`;
+
+    alert(resultMessage);
+    loadStudentVerifications(currentStudentFilter);
+  } catch (error) {
+    console.error('Error running AI verification:', error);
+    alert('❌ AI verification failed: ' + error.message);
+    // Reload to show error status
+    loadStudentVerifications(currentStudentFilter);
+  }
+}
+
 // Setup filter buttons
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -680,6 +743,14 @@ document.addEventListener('click', (e) => {
     const title = e.target.getAttribute('data-title');
     if (imageUrl) {
       showImageModal(imageUrl, title);
+    }
+  }
+
+  // AI Verify button
+  if (e.target.classList.contains('btn-ai-verify')) {
+    const studentId = e.target.getAttribute('data-student-id');
+    if (studentId) {
+      aiVerifyStudent(parseInt(studentId));
     }
   }
 });

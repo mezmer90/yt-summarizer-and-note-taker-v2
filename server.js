@@ -76,12 +76,57 @@ async function createRateLimitTable() {
   }
 }
 
+// Add AI verification columns to student verifications table
+async function addAIVerificationColumns() {
+  try {
+    const migrationSQL = fs.readFileSync(
+      path.join(__dirname, 'src/models/add_ai_verification_columns.sql'),
+      'utf8'
+    );
+    await pool.query(migrationSQL);
+    console.log('✅ AI verification columns added successfully');
+  } catch (error) {
+    console.error('⚠️  Error adding AI verification columns:', error.message);
+  }
+}
+
+// Create admin settings table
+async function createAdminSettingsTable() {
+  try {
+    const migrationSQL = fs.readFileSync(
+      path.join(__dirname, 'src/models/create_admin_settings.sql'),
+      'utf8'
+    );
+    await pool.query(migrationSQL);
+    console.log('✅ Admin settings table created successfully');
+  } catch (error) {
+    console.error('⚠️  Error creating admin settings table:', error.message);
+  }
+}
+
+// Add AI verification settings
+async function addAISettings() {
+  try {
+    const migrationSQL = fs.readFileSync(
+      path.join(__dirname, 'src/models/add_ai_settings.sql'),
+      'utf8'
+    );
+    await pool.query(migrationSQL);
+    console.log('✅ AI verification settings added successfully');
+  } catch (error) {
+    console.error('⚠️  Error adding AI verification settings:', error.message);
+  }
+}
+
 // Initialize database and admin user on startup
 async function initializeServer() {
   await updateDatabaseViews();
   await updateStudentVerificationsTable();
   await updateUsersStudentVerification();
   await createRateLimitTable();
+  await addAIVerificationColumns();
+  await createAdminSettingsTable();
+  await addAISettings();
   await initializeAdminUser();
 }
 
