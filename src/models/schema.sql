@@ -183,7 +183,9 @@ SELECT
   (SELECT SUM(cost_incurred) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as cost_30d;
 
 -- View for User Details (includes Stripe information)
-CREATE OR REPLACE VIEW user_details AS
+DROP VIEW IF EXISTS user_details;
+
+CREATE VIEW user_details AS
 SELECT
   u.id,
   u.extension_user_id,

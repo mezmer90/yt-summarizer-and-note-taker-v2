@@ -1,7 +1,11 @@
 -- Update user_details view to include Stripe information
 -- Run this to update the view with Stripe fields
 
-CREATE OR REPLACE VIEW user_details AS
+-- Drop the old view first to avoid column conflicts
+DROP VIEW IF EXISTS user_details;
+
+-- Create new view with all fields including Stripe data
+CREATE VIEW user_details AS
 SELECT
   u.id,
   u.extension_user_id,
