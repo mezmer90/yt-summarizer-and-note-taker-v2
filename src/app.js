@@ -15,8 +15,10 @@ const webhookRoutes = require('./routes/webhook');
 const app = express();
 
 // Trust proxy - required for Railway deployment
-// This allows express-rate-limit to properly identify users behind Railway's proxy
-app.set('trust proxy', 1);
+// This allows Express to properly handle X-Forwarded-* headers from Railway's proxy
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 
 // Security headers
 app.use(helmet());
