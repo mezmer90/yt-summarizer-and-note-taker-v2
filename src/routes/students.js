@@ -31,7 +31,7 @@ router.post('/send-otp', async (req, res) => {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     await resend.emails.send({
-      from: 'YouTube Summarizer Pro <noreply@aifreedomclub.com>',
+      from: 'YouTube Summarizer Pro <verify@aifreedomclub.com>',
       to: email,
       subject: 'Student Verification - Email OTP',
       html: `
