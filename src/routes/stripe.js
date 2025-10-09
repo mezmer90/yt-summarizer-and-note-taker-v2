@@ -1084,25 +1084,43 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
         // Retrieve subscription to calculate proration
         const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
 
+        console.log('Retrieved subscription:', {
+          id: subscription.id,
+          status: subscription.status,
+          current_period_start: subscription.current_period_start,
+          current_period_end: subscription.current_period_end,
+          priceAmount: subscription.items.data[0]?.price?.unit_amount
+        });
+
         if (subscription.status === 'active' || subscription.status === 'trialing') {
           // Calculate prorated refund amount
           const now = Math.floor(Date.now() / 1000);
           const periodEnd = subscription.current_period_end;
           const periodStart = subscription.current_period_start;
+
+          // Validate period values exist
+          if (!periodEnd || !periodStart) {
+            console.error('Missing period values from subscription:', { periodStart, periodEnd });
+            throw new Error('Subscription period data incomplete');
+          }
+
           const totalPeriod = periodEnd - periodStart;
-          const remainingTime = periodEnd - now;
+          const remainingTime = Math.max(0, periodEnd - now); // Ensure non-negative
 
           // Get the price amount from the subscription
           const priceAmount = subscription.items.data[0].price.unit_amount; // in cents
 
-          // Calculate prorated credit
-          proratedCredit = Math.floor((priceAmount * remainingTime) / totalPeriod);
+          // Calculate prorated credit only if there's remaining time
+          if (remainingTime > 0 && totalPeriod > 0 && priceAmount > 0) {
+            proratedCredit = Math.floor((priceAmount * remainingTime) / totalPeriod);
+          }
 
           console.log('Proration calculation:', {
             priceAmount,
             totalPeriod,
             remainingTime,
-            proratedCredit
+            proratedCredit,
+            remainingDays: (remainingTime / 86400).toFixed(1)
           });
 
           // Cancel subscription immediately and issue refund
@@ -1121,10 +1139,12 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
             [extensionUserId]
           );
 
-          console.log(`Canceled subscription ${user.stripe_subscription_id} with prorated refund: $${(proratedCredit / 100).toFixed(2)}`);
+          console.log(`✅ Canceled subscription ${user.stripe_subscription_id} with prorated refund: $${(proratedCredit / 100).toFixed(2)}`);
+        } else {
+          console.log(`⚠️ Subscription status is ${subscription.status}, no proration needed`);
         }
       } catch (subError) {
-        console.error('Error canceling subscription:', subError);
+        console.error('❌ Error canceling subscription:', subError);
         // Continue anyway - we'll still create the lifetime checkout
       }
     }
@@ -1167,26 +1187,33 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
     };
 
     // If there's a prorated credit, apply it as a discount
-    if (proratedCredit > 0) {
-      // Create a one-time coupon for this specific purchase
-      const coupon = await stripe.coupons.create({
-        amount_off: proratedCredit,
-        currency: 'usd',
-        duration: 'once',
-        name: `Prorated Credit from Previous Subscription`,
-        metadata: {
-          extension_user_id: extensionUserId,
-          original_subscription: user.stripe_subscription_id
-        }
-      });
+    if (proratedCredit > 0 && !isNaN(proratedCredit)) {
+      try {
+        // Create a one-time coupon for this specific purchase
+        const coupon = await stripe.coupons.create({
+          amount_off: proratedCredit,
+          currency: 'usd',
+          duration: 'once',
+          name: `Prorated Credit from Previous Subscription`,
+          metadata: {
+            extension_user_id: extensionUserId,
+            original_subscription: user.stripe_subscription_id
+          }
+        });
 
-      sessionParams.discounts = [
-        {
-          coupon: coupon.id
-        }
-      ];
+        sessionParams.discounts = [
+          {
+            coupon: coupon.id
+          }
+        ];
 
-      console.log(`Created coupon ${coupon.id} for $${(proratedCredit / 100).toFixed(2)} credit`);
+        console.log(`✅ Created coupon ${coupon.id} for $${(proratedCredit / 100).toFixed(2)} credit`);
+      } catch (couponError) {
+        console.error('❌ Error creating coupon:', couponError);
+        // Continue without coupon - user will still get refund
+      }
+    } else {
+      console.log(`ℹ️ No coupon created - proratedCredit: $${(proratedCredit / 100).toFixed(2)}`);
     }
 
     // Create checkout session
