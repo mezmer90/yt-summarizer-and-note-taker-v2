@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const { requireAdmin } = require('../middleware/auth');
-const { sendStudentApprovalEmail } = require('../services/emailService');
 
 // Store OTPs temporarily (in production, use Redis or database)
 const otpStore = new Map(); // { email: { otp: '123456', expiresAt: timestamp, verified: false } }
