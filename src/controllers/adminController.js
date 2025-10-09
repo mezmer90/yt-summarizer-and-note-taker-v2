@@ -143,10 +143,17 @@ const updateSystemSetting = async (req, res) => {
     const { settingKey } = req.params;
     const { value } = req.body;
 
+    console.log(`📝 Update setting request: ${settingKey}`);
+    console.log(`   Value: "${value}"`);
+    console.log(`   Value type: ${typeof value}`);
+    console.log(`   Admin: ${req.admin?.email || 'system'}`);
+
     if (value === undefined) {
+      console.log('❌ Value is undefined');
       return res.status(400).json({ error: 'Setting value is required' });
     }
 
+    console.log(`🔄 Executing UPDATE query for ${settingKey}...`);
     const result = await query(
       `UPDATE system_settings
        SET setting_value = $1, updated_by = $2, updated_at = NOW()
@@ -155,9 +162,14 @@ const updateSystemSetting = async (req, res) => {
       [value, req.admin?.email || 'system', settingKey]
     );
 
+    console.log(`   Query returned ${result.rows.length} rows`);
+
     if (result.rows.length === 0) {
+      console.log(`❌ Setting "${settingKey}" not found in database!`);
       return res.status(404).json({ error: 'Setting not found' });
     }
+
+    console.log(`✅ Database update successful`);
 
     // Log admin action
     await query(
@@ -171,10 +183,12 @@ const updateSystemSetting = async (req, res) => {
       ]
     );
 
-    console.log(`✅ Setting updated: ${settingKey} =`, value);
+    console.log(`✅ Setting updated: ${settingKey} = "${value}"`);
     res.json({ success: true, setting: result.rows[0] });
   } catch (error) {
-    console.error('Error in updateSystemSetting:', error);
+    console.error('❌ Error in updateSystemSetting:', error);
+    console.error('   Error name:', error.name);
+    console.error('   Error message:', error.message);
     res.status(500).json({ error: 'Failed to update setting' });
   }
 };
