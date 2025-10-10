@@ -489,7 +489,7 @@ router.post('/verify-login-code', async (req, res) => {
 // ============================================
 router.post('/create-checkout', async (req, res) => {
   try {
-    const { priceId, extensionUserId, email, successUrl, cancelUrl } = req.body;
+    const { priceId, extensionUserId, email, successUrl, cancelUrl, plan } = req.body;
 
     // Validation
     if (!priceId || !extensionUserId) {
@@ -555,8 +555,25 @@ router.post('/create-checkout', async (req, res) => {
       }
     }
 
-    // Get trial configuration
-    const trialConfig = getTrialConfig(priceId);
+    // Get trial configuration based on the plan parameter
+    // If plan === "trial", force trial even if priceId doesn't normally have one
+    // If plan === "monthly" or "annual", never add trial
+    let trialConfig = { hasTrial: false, trialPeriodDays: 0, trialAmount: 0 };
+
+    if (plan === 'trial' && priceId === STRIPE_PRICES.managed_monthly) {
+      // User explicitly selected trial option
+      trialConfig = {
+        hasTrial: true,
+        trialPeriodDays: 14,
+        trialAmount: 100 // $1 in cents
+      };
+    } else if (plan === 'monthly' || plan === 'annual') {
+      // User selected direct subscription (no trial)
+      trialConfig = { hasTrial: false, trialPeriodDays: 0, trialAmount: 0 };
+    } else {
+      // Fallback to default behavior (for backwards compatibility)
+      trialConfig = getTrialConfig(priceId);
+    }
 
     // Build checkout session parameters
     const sessionParams = {
