@@ -62,6 +62,10 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         await handleTrialWillEnd(event.data.object);
         break;
 
+      case 'customer.deleted':
+        await handleCustomerDeleted(event.data.object);
+        break;
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -390,6 +394,49 @@ async function handleTrialWillEnd(subscription) {
     }
   } catch (error) {
     console.error('Error in handleTrialWillEnd:', error);
+    throw error;
+  }
+}
+
+async function handleCustomerDeleted(customer) {
+  console.log('🗑️ Processing customer.deleted');
+
+  const customerId = customer.id;
+
+  try {
+    // Find user by Stripe customer ID
+    const userResult = await pool.query(
+      'SELECT extension_user_id, email, tier FROM users WHERE stripe_customer_id = $1',
+      [customerId]
+    );
+
+    if (userResult.rows.length === 0) {
+      console.log(`⚠️ No user found with Stripe customer ID: ${customerId}`);
+      return;
+    }
+
+    const user = userResult.rows[0];
+
+    // Clear all Stripe-related data and downgrade to free tier
+    await pool.query(
+      `UPDATE users
+       SET stripe_customer_id = NULL,
+           stripe_subscription_id = NULL,
+           stripe_price_id = NULL,
+           tier = 'free',
+           plan_name = NULL,
+           subscription_status = 'canceled',
+           subscription_end_date = NOW(),
+           subscription_cancel_at = NULL,
+           trial_end_date = NULL,
+           updated_at = NOW()
+       WHERE extension_user_id = $1`,
+      [user.extension_user_id]
+    );
+
+    console.log(`✅ Customer ${customerId} deleted from Stripe. User ${user.extension_user_id} (${user.email}) downgraded to free tier and Stripe data cleared.`);
+  } catch (error) {
+    console.error('Error in handleCustomerDeleted:', error);
     throw error;
   }
 }
