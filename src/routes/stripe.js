@@ -570,6 +570,7 @@ router.post('/create-checkout', async (req, res) => {
       ],
       success_url: successUrl || `${process.env.FRONTEND_URL || 'https://yt-summarizer-and-note-taker-production.up.railway.app'}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancelUrl || `${process.env.FRONTEND_URL || 'https://yt-summarizer-and-note-taker-production.up.railway.app'}/pricing`,
+      allow_promotion_codes: true, // ✅ Enable coupon code input on checkout page
       metadata: {
         extension_user_id: extensionUserId,
         price_id: priceId
@@ -1246,6 +1247,7 @@ router.post('/upgrade-to-lifetime', async (req, res) => {
       ],
       success_url: successUrl || `${process.env.FRONTEND_URL || 'https://yt-summarizer-and-note-taker-production.up.railway.app'}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancelUrl || `${process.env.FRONTEND_URL || 'https://yt-summarizer-and-note-taker-production.up.railway.app'}/pricing`,
+      allow_promotion_codes: true, // ✅ Enable coupon code input on checkout page
       metadata: {
         extension_user_id: extensionUserId,
         price_id: lifetimePriceId,
