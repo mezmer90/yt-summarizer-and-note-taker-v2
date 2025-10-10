@@ -896,23 +896,48 @@ router.get('/subscription-status/:extensionUserId', async (req, res) => {
     // If they have a customer ID, fetch ALL active subscriptions from Stripe
     if (customerId) {
       try {
-        // List all subscriptions for this customer
+        console.log(`🔍 Fetching subscriptions for customer: ${customerId}`);
+
+        // List all subscriptions for this customer (including trialing)
         const subscriptions = await stripe.subscriptions.list({
           customer: customerId,
-          status: 'active',
           limit: 10
         });
 
-        // Find the first active non-free subscription
+        console.log(`📊 Found ${subscriptions.data.length} total subscriptions for customer ${customerId}`);
+
+        // Log all subscriptions for debugging
+        subscriptions.data.forEach((sub, index) => {
+          const priceId = sub.items.data[0].price.id;
+          console.log(`   Subscription ${index + 1}:`, {
+            id: sub.id,
+            status: sub.status,
+            priceId: priceId,
+            trial_end: sub.trial_end,
+            cancel_at_period_end: sub.cancel_at_period_end
+          });
+        });
+
+        // Find the first active or trialing non-free subscription
         const activeSubscription = subscriptions.data.find(sub => {
           const priceId = sub.items.data[0].price.id;
-          return priceId !== STRIPE_PRICES.free_plan && sub.status === 'active';
+          const isActive = sub.status === 'active' || sub.status === 'trialing';
+          const isNotFree = priceId !== STRIPE_PRICES.free_plan;
+          return isActive && isNotFree;
         });
 
         if (activeSubscription) {
           const priceId = activeSubscription.items.data[0].price.id;
           const tier = PRICE_TO_TIER[priceId] || user.tier;
           const planName = PRICE_TO_PLAN_NAME[priceId] || user.plan_name;
+
+          console.log(`✅ Found active subscription:`, {
+            id: activeSubscription.id,
+            priceId,
+            tier,
+            planName,
+            status: activeSubscription.status
+          });
 
           // Update database if it's out of sync
           if (user.stripe_subscription_id !== activeSubscription.id || user.tier !== tier || user.stripe_customer_id !== customerId) {
@@ -939,9 +964,11 @@ router.get('/subscription-status/:extensionUserId', async (req, res) => {
               priceId: priceId
             }
           });
+        } else {
+          console.log(`⚠️ No active/trialing subscription found for customer ${customerId}`);
         }
       } catch (stripeError) {
-        console.error('Error fetching subscriptions from Stripe:', stripeError);
+        console.error('❌ Error fetching subscriptions from Stripe:', stripeError);
         // Fall back to database data
       }
     }
