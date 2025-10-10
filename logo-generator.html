@@ -246,21 +246,24 @@
                 ctx.roundRect(0, 0, size, size, size * 0.15);
                 ctx.fill();
 
-                // Large white note/document in center
+                // Large white note/document in center with rounded corners
                 const noteWidth = size * 0.55;
                 const noteHeight = size * 0.7;
                 const noteX = (size - noteWidth) / 2;
                 const noteY = (size - noteHeight) / 2;
+                const noteRadius = size * 0.08;
 
                 ctx.fillStyle = YOUTUBE_WHITE;
-                ctx.fillRect(noteX, noteY, noteWidth, noteHeight);
+                ctx.beginPath();
+                ctx.roundRect(noteX, noteY, noteWidth, noteHeight, noteRadius);
+                ctx.fill();
 
-                // Fold corner on top-right
+                // Fold corner on top-right (curved to match rounded corners)
                 const foldSize = noteWidth * 0.25;
                 ctx.fillStyle = '#E0E0E0';
                 ctx.beginPath();
-                ctx.moveTo(noteX + noteWidth - foldSize, noteY);
-                ctx.lineTo(noteX + noteWidth, noteY + foldSize);
+                ctx.moveTo(noteX + noteWidth - foldSize, noteY + noteRadius * 0.5);
+                ctx.lineTo(noteX + noteWidth - noteRadius * 0.5, noteY + foldSize);
                 ctx.lineTo(noteX + noteWidth - foldSize, noteY + foldSize);
                 ctx.fill();
 
