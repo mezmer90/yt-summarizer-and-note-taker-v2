@@ -239,47 +239,46 @@
                 ctx.fillText('YT', size * 0.5, size * 0.5);
 
             } else if (style === 'style4') {
-                // Style 4: Bold YT + Note Icon Below (Combined)
+                // Style 4: YT Text Inside Note Icon
                 // Red rounded rectangle background
                 ctx.fillStyle = YOUTUBE_RED;
                 ctx.beginPath();
                 ctx.roundRect(0, 0, size, size, size * 0.15);
                 ctx.fill();
 
-                // Prominent "YT" text in center-top (YouTube style)
+                // Large white note/document in center
+                const noteWidth = size * 0.55;
+                const noteHeight = size * 0.7;
+                const noteX = (size - noteWidth) / 2;
+                const noteY = (size - noteHeight) / 2;
+
                 ctx.fillStyle = YOUTUBE_WHITE;
-                ctx.font = `bold ${size * 0.45}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('YT', size * 0.5, size * 0.35);
+                ctx.fillRect(noteX, noteY, noteWidth, noteHeight);
 
-                // Small note icon below the YT text
-                const noteSize = size * 0.22;
-                const noteX = size * 0.5 - noteSize / 2;
-                const noteY = size * 0.6;
-
-                // White note/document
-                ctx.fillStyle = YOUTUBE_WHITE;
-                ctx.fillRect(noteX, noteY, noteSize, noteSize * 1.1);
-
-                // Fold corner (smaller)
+                // Fold corner on top-right
+                const foldSize = noteWidth * 0.25;
                 ctx.fillStyle = '#E0E0E0';
                 ctx.beginPath();
-                ctx.moveTo(noteX + noteSize * 0.65, noteY);
-                ctx.lineTo(noteX + noteSize, noteY + noteSize * 0.35);
-                ctx.lineTo(noteX + noteSize * 0.65, noteY + noteSize * 0.35);
+                ctx.moveTo(noteX + noteWidth - foldSize, noteY);
+                ctx.lineTo(noteX + noteWidth, noteY + foldSize);
+                ctx.lineTo(noteX + noteWidth - foldSize, noteY + foldSize);
                 ctx.fill();
 
-                // Lines on note (subtle)
-                ctx.strokeStyle = YOUTUBE_RED;
-                ctx.lineWidth = size * 0.012;
+                // Bold "YT" text in center of note (RED on white background)
+                ctx.fillStyle = YOUTUBE_RED;
+                ctx.font = `bold ${size * 0.35}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('YT', size * 0.5, size * 0.5);
+
+                // Subtle lines on note below YT text
+                ctx.strokeStyle = '#CCCCCC';
+                ctx.lineWidth = size * 0.015;
                 ctx.beginPath();
-                ctx.moveTo(noteX + noteSize * 0.15, noteY + noteSize * 0.5);
-                ctx.lineTo(noteX + noteSize * 0.85, noteY + noteSize * 0.5);
-                ctx.moveTo(noteX + noteSize * 0.15, noteY + noteSize * 0.7);
-                ctx.lineTo(noteX + noteSize * 0.85, noteY + noteSize * 0.7);
-                ctx.moveTo(noteX + noteSize * 0.15, noteY + noteSize * 0.9);
-                ctx.lineTo(noteX + noteSize * 0.6, noteY + noteSize * 0.9);
+                ctx.moveTo(noteX + noteWidth * 0.2, noteY + noteHeight * 0.75);
+                ctx.lineTo(noteX + noteWidth * 0.8, noteY + noteHeight * 0.75);
+                ctx.moveTo(noteX + noteWidth * 0.2, noteY + noteHeight * 0.85);
+                ctx.lineTo(noteX + noteWidth * 0.8, noteY + noteHeight * 0.85);
                 ctx.stroke();
             }
         }
