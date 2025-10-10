@@ -152,13 +152,13 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 CREATE TRIGGER update_model_configs_updated_at BEFORE UPDATE ON model_configs
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Insert Default Model Configurations
+-- Insert Default Model Configurations (ONLY allowed models)
 INSERT INTO model_configs (tier, model_id, model_name, max_output_tokens, cost_per_1m_input, cost_per_1m_output, context_window) VALUES
-  ('free', 'google/gemini-flash-1.5-8b', 'Gemini Flash 1.5 8B', 8192, 0.0375, 0.15, 1000000),
-  ('premium', 'anthropic/claude-3.5-sonnet', 'Claude 3.5 Sonnet', 8192, 3.00, 15.00, 200000),
-  ('unlimited', 'anthropic/claude-3-opus', 'Claude 3 Opus', 4096, 15.00, 75.00, 200000),
-  ('managed', 'google/gemini-flash-1.5-8b', 'Gemini Flash 1.5 8B', 8192, 0.0375, 0.15, 1000000),
-  ('trial', 'google/gemini-flash-1.5-8b', 'Gemini Flash 1.5 8B', 8192, 0.0375, 0.15, 1000000)
+  ('free', 'google/gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 8192, 0.10, 0.40, 1048576),
+  ('premium', 'openai/gpt-4o-mini-2024-07-18', 'GPT-4o-mini', 16384, 0.15, 0.60, 128000),
+  ('unlimited', 'anthropic/claude-3.5-haiku', 'Claude 3.5 Haiku', 8192, 0.80, 4.00, 200000),
+  ('managed', 'meta-llama/llama-3.1-8b-instruct', 'Llama 3.1 8B', 8192, 0.02, 0.03, 131072),
+  ('trial', 'google/gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 8192, 0.10, 0.40, 1048576)
 ON CONFLICT (tier) DO NOTHING;
 
 -- Insert Default System Settings

@@ -146,30 +146,20 @@ async function loadModels() {
         <p><strong>Context Window:</strong> ${(model.context_window / 1000).toFixed(0)}K tokens</p>
         <label for="model-${model.tier}" style="display: block; margin-top: 15px; margin-bottom: 8px; font-weight: 600;">Select New Model:</label>
         <select id="model-${model.tier}" class="model-select">
-          <optgroup label="Google (OpenRouter)">
-            <option value="google/gemini-flash-1.5-8b" ${model.model_id === 'google/gemini-flash-1.5-8b' ? 'selected' : ''}>Gemini Flash 1.5 8B - Cheapest ($0.0375/$0.15)</option>
-            <option value="google/gemini-pro-1.5" ${model.model_id === 'google/gemini-pro-1.5' ? 'selected' : ''}>Gemini Pro 1.5 - Balanced ($1.25/$5.00)</option>
-            <option value="google/gemini-flash-1.5" ${model.model_id === 'google/gemini-flash-1.5' ? 'selected' : ''}>Gemini Flash 1.5 - Fast ($0.075/$0.30)</option>
+          <optgroup label="Google">
+            <option value="google/gemini-2.5-flash-lite" ${model.model_id === 'google/gemini-2.5-flash-lite' ? 'selected' : ''}>Gemini 2.5 Flash Lite ($0.10/$0.40)</option>
           </optgroup>
-          <optgroup label="Anthropic (OpenRouter)">
-            <option value="anthropic/claude-3.5-sonnet" ${model.model_id === 'anthropic/claude-3.5-sonnet' ? 'selected' : ''}>Claude 3.5 Sonnet - Best ($3.00/$15.00)</option>
-            <option value="anthropic/claude-3-opus" ${model.model_id === 'anthropic/claude-3-opus' ? 'selected' : ''}>Claude 3 Opus - Premium ($15.00/$75.00)</option>
-            <option value="anthropic/claude-3-haiku" ${model.model_id === 'anthropic/claude-3-haiku' ? 'selected' : ''}>Claude 3 Haiku - Fast ($0.25/$1.25)</option>
-            <option value="anthropic/claude-3-sonnet" ${model.model_id === 'anthropic/claude-3-sonnet' ? 'selected' : ''}>Claude 3 Sonnet - Balanced ($3.00/$15.00)</option>
+          <optgroup label="OpenAI">
+            <option value="openai/gpt-4o-mini-2024-07-18" ${model.model_id === 'openai/gpt-4o-mini-2024-07-18' ? 'selected' : ''}>GPT-4o-mini ($0.15/$0.60)</option>
           </optgroup>
-          <optgroup label="OpenAI (OpenRouter)">
-            <option value="openai/gpt-4o" ${model.model_id === 'openai/gpt-4o' ? 'selected' : ''}>GPT-4o - Latest ($2.50/$10.00)</option>
-            <option value="openai/gpt-4o-mini" ${model.model_id === 'openai/gpt-4o-mini' ? 'selected' : ''}>GPT-4o Mini - Affordable ($0.15/$0.60)</option>
-            <option value="openai/gpt-4-turbo" ${model.model_id === 'openai/gpt-4-turbo' ? 'selected' : ''}>GPT-4 Turbo ($10.00/$30.00)</option>
-            <option value="openai/gpt-3.5-turbo" ${model.model_id === 'openai/gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo - Budget ($0.50/$1.50)</option>
+          <optgroup label="Meta">
+            <option value="meta-llama/llama-3.1-8b-instruct" ${model.model_id === 'meta-llama/llama-3.1-8b-instruct' ? 'selected' : ''}>Llama 3.1 8B ($0.02/$0.03)</option>
           </optgroup>
-          <optgroup label="Meta (OpenRouter)">
-            <option value="meta-llama/llama-3.1-70b-instruct" ${model.model_id === 'meta-llama/llama-3.1-70b-instruct' ? 'selected' : ''}>Llama 3.1 70B - Open Source ($0.35/$0.40)</option>
-            <option value="meta-llama/llama-3.1-405b-instruct" ${model.model_id === 'meta-llama/llama-3.1-405b-instruct' ? 'selected' : ''}>Llama 3.1 405B - Largest ($2.75/$2.75)</option>
+          <optgroup label="Mistral">
+            <option value="mistralai/mistral-nemo" ${model.model_id === 'mistralai/mistral-nemo' ? 'selected' : ''}>Mistral Nemo ($0.02/$0.04)</option>
           </optgroup>
-          <optgroup label="Mistral (OpenRouter)">
-            <option value="mistralai/mistral-large" ${model.model_id === 'mistralai/mistral-large' ? 'selected' : ''}>Mistral Large ($2.00/$6.00)</option>
-            <option value="mistralai/mistral-medium" ${model.model_id === 'mistralai/mistral-medium' ? 'selected' : ''}>Mistral Medium ($2.70/$8.10)</option>
+          <optgroup label="Anthropic">
+            <option value="anthropic/claude-3.5-haiku" ${model.model_id === 'anthropic/claude-3.5-haiku' ? 'selected' : ''}>Claude 3.5 Haiku ($0.80/$4.00)</option>
           </optgroup>
         </select>
         <button class="btn-update-model" data-tier="${model.tier}" style="margin-top: 12px; width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">Update Model for ${model.tier.toUpperCase()} Tier</button>
@@ -186,30 +176,12 @@ async function updateModel(tier) {
   const modelId = selectEl.value;
 
   const modelData = {
-    // Google models
-    'google/gemini-flash-1.5-8b': { name: 'Gemini Flash 1.5 8B', tokens: 8192, costIn: 0.0375, costOut: 0.15, context: 1000000 },
-    'google/gemini-pro-1.5': { name: 'Gemini Pro 1.5', tokens: 8192, costIn: 1.25, costOut: 5.00, context: 2000000 },
-    'google/gemini-flash-1.5': { name: 'Gemini Flash 1.5', tokens: 8192, costIn: 0.075, costOut: 0.30, context: 1000000 },
-
-    // Anthropic models
-    'anthropic/claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', tokens: 8192, costIn: 3.00, costOut: 15.00, context: 200000 },
-    'anthropic/claude-3-opus': { name: 'Claude 3 Opus', tokens: 4096, costIn: 15.00, costOut: 75.00, context: 200000 },
-    'anthropic/claude-3-haiku': { name: 'Claude 3 Haiku', tokens: 4096, costIn: 0.25, costOut: 1.25, context: 200000 },
-    'anthropic/claude-3-sonnet': { name: 'Claude 3 Sonnet', tokens: 4096, costIn: 3.00, costOut: 15.00, context: 200000 },
-
-    // OpenAI models
-    'openai/gpt-4o': { name: 'GPT-4o', tokens: 16384, costIn: 2.50, costOut: 10.00, context: 128000 },
-    'openai/gpt-4o-mini': { name: 'GPT-4o Mini', tokens: 16384, costIn: 0.15, costOut: 0.60, context: 128000 },
-    'openai/gpt-4-turbo': { name: 'GPT-4 Turbo', tokens: 4096, costIn: 10.00, costOut: 30.00, context: 128000 },
-    'openai/gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', tokens: 4096, costIn: 0.50, costOut: 1.50, context: 16385 },
-
-    // Meta models
-    'meta-llama/llama-3.1-70b-instruct': { name: 'Llama 3.1 70B', tokens: 8192, costIn: 0.35, costOut: 0.40, context: 131072 },
-    'meta-llama/llama-3.1-405b-instruct': { name: 'Llama 3.1 405B', tokens: 8192, costIn: 2.75, costOut: 2.75, context: 131072 },
-
-    // Mistral models
-    'mistralai/mistral-large': { name: 'Mistral Large', tokens: 8192, costIn: 2.00, costOut: 6.00, context: 128000 },
-    'mistralai/mistral-medium': { name: 'Mistral Medium', tokens: 8192, costIn: 2.70, costOut: 8.10, context: 32000 }
+    // ONLY allowed models
+    'google/gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', tokens: 8192, costIn: 0.10, costOut: 0.40, context: 1048576 },
+    'openai/gpt-4o-mini-2024-07-18': { name: 'GPT-4o-mini', tokens: 16384, costIn: 0.15, costOut: 0.60, context: 128000 },
+    'meta-llama/llama-3.1-8b-instruct': { name: 'Llama 3.1 8B', tokens: 8192, costIn: 0.02, costOut: 0.03, context: 131072 },
+    'mistralai/mistral-nemo': { name: 'Mistral Nemo', tokens: 8192, costIn: 0.02, costOut: 0.04, context: 128000 },
+    'anthropic/claude-3.5-haiku': { name: 'Claude 3.5 Haiku', tokens: 8192, costIn: 0.80, costOut: 4.00, context: 200000 }
   };
 
   const model = modelData[modelId];
