@@ -1016,14 +1016,19 @@ router.get('/subscription-status/:extensionUserId', async (req, res) => {
       }
     }
 
+    // Fallback to database data (subscription not found in Stripe or error occurred)
+    console.log('⚠️ Falling back to database subscription data');
     res.json({
       success: true,
       tier: user.tier,
       planName: user.plan_name,
       subscription: user.stripe_subscription_id ? {
+        id: user.stripe_subscription_id,
         status: user.subscription_status,
-        cancelAt: user.subscription_cancel_at,
-        endDate: user.subscription_end_date
+        currentPeriodEnd: user.subscription_cancel_at || user.subscription_end_date,
+        cancelAtPeriodEnd: !!user.subscription_cancel_at,
+        trialEnd: user.trial_end_date,
+        priceId: user.stripe_price_id
       } : null
     });
 
