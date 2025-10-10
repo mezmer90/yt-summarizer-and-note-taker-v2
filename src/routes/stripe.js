@@ -45,17 +45,49 @@ router.post('/send-verification-code', async (req, res) => {
 
     // Check if email already exists in the system (for ANY user)
     const emailCheck = await pool.query(
-      'SELECT extension_user_id, email FROM users WHERE email = $1',
+      'SELECT extension_user_id, email, stripe_customer_id FROM users WHERE email = $1',
       [email]
     );
 
     if (emailCheck.rows.length > 0) {
-      // Email already exists - don't send OTP
-      return res.status(400).json({
-        success: false,
-        error: 'Account already exists with this email. Please login instead.',
-        accountExists: true
-      });
+      const existingUser = emailCheck.rows[0];
+
+      // If user has a stripe_customer_id, verify it still exists in Stripe
+      if (existingUser.stripe_customer_id) {
+        try {
+          await stripe.customers.retrieve(existingUser.stripe_customer_id);
+
+          // Customer exists in Stripe - this is a real active account
+          console.log(`⚠️ Email already exists with active Stripe customer: ${email}`);
+          return res.status(400).json({
+            success: false,
+            error: 'Account already exists with this email. Please login instead.',
+            accountExists: true
+          });
+        } catch (stripeError) {
+          // Customer was deleted from Stripe - clean up and allow re-registration
+          console.log(`🗑️ Stripe customer ${existingUser.stripe_customer_id} was deleted. Cleaning up user record for: ${email}`);
+
+          await pool.query(
+            'DELETE FROM users WHERE email = $1',
+            [email]
+          );
+
+          console.log(`✅ Cleaned up orphaned user record for ${email}. Allowing re-registration.`);
+          // Continue with normal registration flow below
+        }
+      } else {
+        // User exists in DB but has no Stripe customer - clean up and allow re-registration
+        console.log(`🗑️ User ${email} exists but has no Stripe customer. Cleaning up.`);
+
+        await pool.query(
+          'DELETE FROM users WHERE email = $1',
+          [email]
+        );
+
+        console.log(`✅ Cleaned up incomplete user record for ${email}. Allowing re-registration.`);
+        // Continue with normal registration flow below
+      }
     }
 
     // Generate 6-digit code
