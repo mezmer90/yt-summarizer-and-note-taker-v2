@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS user_usage (
   tokens_used INTEGER DEFAULT 0,
   api_calls INTEGER DEFAULT 0,
   cost_incurred DECIMAL(10,4) DEFAULT 0,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, date)
 );
 
 -- API Keys (for Managed Plan Backend)

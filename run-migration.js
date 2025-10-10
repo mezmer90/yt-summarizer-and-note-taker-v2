@@ -1,4 +1,4 @@
-// Run database migration to update admin_dashboard_stats view
+// Run database migration
 const { Pool } = require('pg');
 const fs = require('fs');
 
@@ -9,14 +9,15 @@ const pool = new Pool({
 
 async function runMigration() {
   try {
-    console.log('📝 Reading migration SQL...');
-    const sql = fs.readFileSync('./update-dashboard-stats.sql', 'utf8');
+    const migrationFile = process.argv[2] || './update-dashboard-stats.sql';
+
+    console.log(`📝 Reading migration file: ${migrationFile}...`);
+    const sql = fs.readFileSync(migrationFile, 'utf8');
 
     console.log('🔄 Running migration...');
     await pool.query(sql);
 
     console.log('✅ Migration completed successfully!');
-    console.log('📊 admin_dashboard_stats view updated with total_videos and total_cost columns');
 
     process.exit(0);
   } catch (error) {
