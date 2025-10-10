@@ -192,7 +192,9 @@ SELECT
   (SELECT SUM(tokens_used) FROM user_usage WHERE date = CURRENT_DATE) as tokens_today,
   (SELECT SUM(cost_incurred) FROM user_usage WHERE date = CURRENT_DATE) as cost_today,
   (SELECT SUM(videos_processed) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as videos_30d,
-  (SELECT SUM(cost_incurred) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as cost_30d;
+  (SELECT SUM(cost_incurred) FROM user_usage WHERE date > CURRENT_DATE - INTERVAL '30 days') as cost_30d,
+  (SELECT SUM(videos_processed) FROM user_usage) as total_videos,
+  (SELECT SUM(cost_incurred) FROM user_usage) as total_cost;
 
 -- View for User Details (includes Stripe information)
 DROP VIEW IF EXISTS user_details;
