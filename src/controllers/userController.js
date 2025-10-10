@@ -242,6 +242,17 @@ const getUserModel = async (req, res) => {
       ? settingResult.rows[0].setting_value === 'true'
       : true;
 
+    // Get max video length for this tier
+    const maxVideoLengthResult = await query(
+      `SELECT setting_value FROM system_settings
+       WHERE setting_key = $1`,
+      [`default_max_video_length_${user.tier}`]
+    );
+
+    const maxVideoLength = maxVideoLengthResult.rows.length > 0
+      ? parseInt(maxVideoLengthResult.rows[0].setting_value)
+      : 30; // Default to 30 minutes if not set
+
     res.json({
       success: true,
       user: {
@@ -257,7 +268,8 @@ const getUserModel = async (req, res) => {
         chunkSize: 4000,
         costPer1MInput: parseFloat(user.cost_per_1m_input || 0),
         costPer1MOutput: parseFloat(user.cost_per_1m_output || 0),
-        contextWindow: user.context_window || 128000
+        contextWindow: user.context_window || 128000,
+        maxVideoLength: maxVideoLength // Add video length limit in minutes
       },
       tier: user.tier,
       requiresApiKey
