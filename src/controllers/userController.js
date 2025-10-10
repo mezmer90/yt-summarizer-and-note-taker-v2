@@ -78,21 +78,59 @@ async function getCachedUserConfig(extensionUserId) {
   return config;
 }
 
+// Track processed videos to avoid double-counting
+const processedVideosToday = new Map(); // videoId -> date
+
 // Helper function to track usage asynchronously (fire and forget)
-async function trackUsageAsync(userId, extensionUserId, totalTokens, totalCost) {
+// NOTE: This tracks tokens/cost per API call (chunk), not per video
+// Only increments video count once per unique videoId per day
+async function trackUsageAsync(userId, extensionUserId, totalTokens, totalCost, videoId) {
   try {
-    await query(
-      `INSERT INTO user_usage (user_id, extension_user_id, date, videos_processed, tokens_used, api_calls, cost_incurred)
-       VALUES ($1, $2, CURRENT_DATE, 1, $3, 1, $4)
-       ON CONFLICT (user_id, date)
-       DO UPDATE SET
-         videos_processed = user_usage.videos_processed + 1,
-         tokens_used = user_usage.tokens_used + $3,
-         api_calls = user_usage.api_calls + 1,
-         cost_incurred = user_usage.cost_incurred + $4`,
-      [userId, extensionUserId, totalTokens, totalCost]
-    );
-    console.log('✅ Usage tracked for user:', extensionUserId);
+    const today = new Date().toISOString().split('T')[0];
+    const videoKey = `${userId}_${videoId}_${today}`;
+
+    // Check if we've already counted this video today
+    const isFirstTimeToday = !processedVideosToday.has(videoKey);
+
+    if (isFirstTimeToday) {
+      // Mark this video as processed today
+      processedVideosToday.set(videoKey, Date.now());
+
+      // First time processing this video today - increment video count
+      await query(
+        `INSERT INTO user_usage (user_id, extension_user_id, date, videos_processed, tokens_used, api_calls, cost_incurred)
+         VALUES ($1, $2, CURRENT_DATE, 1, $3, 1, $4)
+         ON CONFLICT (user_id, date)
+         DO UPDATE SET
+           videos_processed = user_usage.videos_processed + 1,
+           tokens_used = user_usage.tokens_used + $3,
+           api_calls = user_usage.api_calls + 1,
+           cost_incurred = user_usage.cost_incurred + $4`,
+        [userId, extensionUserId, totalTokens, totalCost]
+      );
+      console.log('✅ Usage tracked (NEW video) for user:', extensionUserId, '| Video:', videoId);
+    } else {
+      // Subsequent chunks of same video - only track tokens/cost, not video count
+      await query(
+        `INSERT INTO user_usage (user_id, extension_user_id, date, videos_processed, tokens_used, api_calls, cost_incurred)
+         VALUES ($1, $2, CURRENT_DATE, 0, $3, 1, $4)
+         ON CONFLICT (user_id, date)
+         DO UPDATE SET
+           tokens_used = user_usage.tokens_used + $3,
+           api_calls = user_usage.api_calls + 1,
+           cost_incurred = user_usage.cost_incurred + $4`,
+        [userId, extensionUserId, totalTokens, totalCost]
+      );
+      console.log('✅ Usage tracked (chunk of existing video) for user:', extensionUserId, '| Video:', videoId);
+    }
+
+    // Clean up old entries (older than 2 days) to prevent memory leak
+    const twoDaysAgo = Date.now() - (2 * 24 * 60 * 60 * 1000);
+    for (const [key, timestamp] of processedVideosToday.entries()) {
+      if (timestamp < twoDaysAgo) {
+        processedVideosToday.delete(key);
+      }
+    }
   } catch (error) {
     console.error('⚠️ Failed to track usage:', error);
   }
@@ -302,9 +340,9 @@ const processVideo = async (req, res) => {
 
   try {
     const { extensionUserId } = req.params;
-    const { videoId, transcript, prompt, maxTokens } = req.body;
+    const { videoId, transcript, prompt, maxTokens, isFirstChunk } = req.body;
 
-    console.log('🔵 Processing video for managed user:', extensionUserId);
+    console.log('🔵 Processing video for managed user:', extensionUserId, '| First chunk:', isFirstChunk);
 
     // Validate inputs
     if (!extensionUserId) {
@@ -405,7 +443,8 @@ const processVideo = async (req, res) => {
     });
 
     // Track usage asynchronously (fire and forget - don't block response)
-    trackUsageAsync(user.id, extensionUserId, totalTokens, totalCost).catch(err => {
+    // Only increment video count once per unique videoId per day
+    trackUsageAsync(user.id, extensionUserId, totalTokens, totalCost, videoId).catch(err => {
       console.error('⚠️ Async usage tracking failed:', err);
     });
 
