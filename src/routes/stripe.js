@@ -43,17 +43,18 @@ router.post('/send-verification-code', async (req, res) => {
       });
     }
 
-    // Check if user already has a subscription
-    const existingUser = await pool.query(
-      'SELECT id, stripe_subscription_id FROM users WHERE extension_user_id = $1',
-      [extensionUserId]
+    // Check if email already exists in the system (for ANY user)
+    const emailCheck = await pool.query(
+      'SELECT extension_user_id, email FROM users WHERE email = $1',
+      [email]
     );
 
-    if (existingUser.rows.length > 0 && existingUser.rows[0].stripe_subscription_id) {
-      return res.json({
-        success: true,
-        message: 'User already registered',
-        alreadyRegistered: true
+    if (emailCheck.rows.length > 0) {
+      // Email already exists - don't send OTP
+      return res.status(400).json({
+        success: false,
+        error: 'Account already exists with this email. Please login instead.',
+        accountExists: true
       });
     }
 
