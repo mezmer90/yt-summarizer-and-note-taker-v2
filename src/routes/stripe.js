@@ -794,13 +794,24 @@ router.post('/cancel-subscription', async (req, res) => {
         cancel_at_period_end: true
       });
 
+      // Calculate cancel date - use trial_end if in trial, otherwise current_period_end
+      const cancelDate = canceledSubscription.trial_end
+        ? new Date(canceledSubscription.trial_end * 1000)
+        : canceledSubscription.current_period_end
+        ? new Date(canceledSubscription.current_period_end * 1000)
+        : null;
+
       // Update database
-      await pool.query(
-        `UPDATE users
-         SET subscription_cancel_at = $1, updated_at = NOW()
-         WHERE extension_user_id = $2`,
-        [new Date(canceledSubscription.current_period_end * 1000), extensionUserId]
-      );
+      if (cancelDate) {
+        await pool.query(
+          `UPDATE users
+           SET subscription_cancel_at = $1, updated_at = NOW()
+           WHERE extension_user_id = $2`,
+          [cancelDate, extensionUserId]
+        );
+      } else {
+        console.error('⚠️ Could not determine cancel date for subscription:', subscriptionId);
+      }
     }
 
     res.json({
