@@ -1,6 +1,103 @@
 // User Controller - User Management
 const { query } = require('../config/database');
 
+// Simple in-memory cache for performance optimization
+const cache = {
+  apiKey: { value: null, expiry: 0 },
+  userConfigs: new Map() // Map of extensionUserId -> { config, expiry }
+};
+
+const CACHE_TTL = {
+  API_KEY: 5 * 60 * 1000, // 5 minutes
+  USER_CONFIG: 2 * 60 * 1000 // 2 minutes
+};
+
+// Helper function to get cached API key
+async function getCachedApiKey() {
+  const now = Date.now();
+
+  // Return cached value if still valid
+  if (cache.apiKey.value && cache.apiKey.expiry > now) {
+    console.log('✅ Using cached OpenRouter API key');
+    return cache.apiKey.value;
+  }
+
+  // Fetch from database
+  const apiKeyResult = await query(
+    `SELECT setting_value FROM system_settings WHERE setting_key = 'openrouter_api_key'`
+  );
+  const dbApiKey = (apiKeyResult.rows.length > 0 && apiKeyResult.rows[0].setting_value)
+    ? apiKeyResult.rows[0].setting_value
+    : '';
+  const apiKey = dbApiKey || process.env.OPENROUTER_API_KEY;
+
+  // Cache the result
+  cache.apiKey = {
+    value: apiKey,
+    expiry: now + CACHE_TTL.API_KEY
+  };
+
+  console.log('✅ Fetched and cached OpenRouter API key from:', dbApiKey ? 'Admin Panel (Database)' : 'Railway Environment Variable');
+  return apiKey;
+}
+
+// Helper function to get cached user configuration
+async function getCachedUserConfig(extensionUserId) {
+  const now = Date.now();
+
+  // Return cached value if still valid
+  const cached = cache.userConfigs.get(extensionUserId);
+  if (cached && cached.expiry > now) {
+    console.log('✅ Using cached user configuration for:', extensionUserId);
+    return cached.config;
+  }
+
+  // Fetch from database
+  const userResult = await query(
+    `SELECT u.*, mc.model_id, mc.model_name, mc.max_output_tokens,
+            mc.cost_per_1m_input, mc.cost_per_1m_output
+     FROM users u
+     LEFT JOIN model_configs mc ON u.tier = mc.tier
+     WHERE u.extension_user_id = $1`,
+    [extensionUserId]
+  );
+
+  if (userResult.rows.length === 0) {
+    return null;
+  }
+
+  const config = userResult.rows[0];
+
+  // Cache the result
+  cache.userConfigs.set(extensionUserId, {
+    config,
+    expiry: now + CACHE_TTL.USER_CONFIG
+  });
+
+  console.log('✅ Fetched and cached user configuration for:', extensionUserId);
+  return config;
+}
+
+// Helper function to track usage asynchronously (fire and forget)
+async function trackUsageAsync(userId, extensionUserId, totalTokens, totalCost) {
+  try {
+    await query(
+      `INSERT INTO user_usage (user_id, extension_user_id, date, videos_processed, tokens_used, api_calls, cost_incurred)
+       VALUES ($1, $2, CURRENT_DATE, 1, $3, 1, $4)
+       ON CONFLICT (user_id, date)
+       DO UPDATE SET
+         videos_processed = user_usage.videos_processed + 1,
+         tokens_used = user_usage.tokens_used + $3,
+         api_calls = user_usage.api_calls + 1,
+         cost_incurred = user_usage.cost_incurred + $4`,
+      [userId, extensionUserId, totalTokens, totalCost]
+    );
+    console.log('✅ Usage tracked for user:', extensionUserId);
+  } catch (error) {
+    console.error('⚠️ Failed to track usage:', error);
+  }
+}
+
 // Get or create user
 const getOrCreateUser = async (req, res) => {
   try {
@@ -58,6 +155,10 @@ const updateUserTier = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    // Invalidate user cache when tier is updated
+    cache.userConfigs.delete(extensionUserId);
+    console.log('🗑️ Cache invalidated for user:', extensionUserId);
 
     console.log('✅ User tier updated:', extensionUserId, '->', tier);
     res.json({ success: true, user: result.rows[0] });
@@ -197,6 +298,8 @@ const getUserStats = async (req, res) => {
 
 // Process video for managed users (backend handles OpenRouter API call)
 const processVideo = async (req, res) => {
+  const startTime = Date.now();
+
   try {
     const { extensionUserId } = req.params;
     const { videoId, transcript, prompt, maxTokens } = req.body;
@@ -212,21 +315,15 @@ const processVideo = async (req, res) => {
       return res.status(400).json({ error: 'Transcript and prompt are required' });
     }
 
-    // Get user and verify they are managed/trial tier
-    const userResult = await query(
-      `SELECT u.*, mc.model_id, mc.model_name, mc.max_output_tokens,
-              mc.cost_per_1m_input, mc.cost_per_1m_output
-       FROM users u
-       LEFT JOIN model_configs mc ON u.tier = mc.tier
-       WHERE u.extension_user_id = $1`,
-      [extensionUserId]
-    );
+    // Fetch user config and API key in parallel using cached helpers
+    const [user, apiKey] = await Promise.all([
+      getCachedUserConfig(extensionUserId),
+      getCachedApiKey()
+    ]);
 
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    const user = userResult.rows[0];
 
     // Only allow managed/trial users to use this endpoint
     if (user.tier !== 'managed' && user.tier !== 'trial') {
@@ -235,15 +332,6 @@ const processVideo = async (req, res) => {
       });
     }
 
-    // Get OpenRouter API key from database (PRIMARY) or environment variable (FALLBACK)
-    const apiKeyResult = await query(
-      `SELECT setting_value FROM system_settings WHERE setting_key = 'openrouter_api_key'`
-    );
-    const dbApiKey = (apiKeyResult.rows.length > 0 && apiKeyResult.rows[0].setting_value)
-      ? apiKeyResult.rows[0].setting_value
-      : '';
-    const apiKey = dbApiKey || process.env.OPENROUTER_API_KEY;
-
     if (!apiKey) {
       console.error('❌ No OpenRouter API key found in database or environment');
       return res.status(500).json({
@@ -251,7 +339,6 @@ const processVideo = async (req, res) => {
       });
     }
 
-    console.log('✅ Using OpenRouter API key from:', dbApiKey ? 'Admin Panel (Database)' : 'Railway Environment Variable');
     console.log('🤖 Model for', user.tier, 'tier:', user.model_id);
 
     // Prepare OpenRouter API request
@@ -317,26 +404,16 @@ const processVideo = async (req, res) => {
       cost: `$${totalCost.toFixed(4)}`
     });
 
-    // Track usage in database
-    try {
-      await query(
-        `INSERT INTO user_usage (user_id, extension_user_id, date, videos_processed, tokens_used, api_calls, cost_incurred)
-         VALUES ($1, $2, CURRENT_DATE, 1, $3, 1, $4)
-         ON CONFLICT (user_id, date)
-         DO UPDATE SET
-           videos_processed = user_usage.videos_processed + 1,
-           tokens_used = user_usage.tokens_used + $3,
-           api_calls = user_usage.api_calls + 1,
-           cost_incurred = user_usage.cost_incurred + $4`,
-        [user.id, extensionUserId, totalTokens, totalCost]
-      );
-      console.log('✅ Usage tracked for user:', extensionUserId);
-    } catch (usageError) {
-      console.error('⚠️ Failed to track usage:', usageError);
-      // Don't fail the request if usage tracking fails
-    }
+    // Track usage asynchronously (fire and forget - don't block response)
+    trackUsageAsync(user.id, extensionUserId, totalTokens, totalCost).catch(err => {
+      console.error('⚠️ Async usage tracking failed:', err);
+    });
 
-    // Return successful response
+    // Calculate and log performance metrics
+    const totalTime = Date.now() - startTime;
+    console.log(`⚡ Performance: Total processing time: ${totalTime}ms`);
+
+    // Return successful response immediately (without waiting for usage tracking)
     res.json({
       success: true,
       content: content,
@@ -347,7 +424,8 @@ const processVideo = async (req, res) => {
         cost: totalCost
       },
       model: modelId,
-      tier: user.tier
+      tier: user.tier,
+      processingTime: totalTime
     });
 
   } catch (error) {
@@ -365,5 +443,7 @@ module.exports = {
   getUserModel,
   trackUsage,
   getUserStats,
-  processVideo
+  processVideo,
+  // Export cache getter for admin controller to invalidate API key cache
+  getCache: () => cache
 };

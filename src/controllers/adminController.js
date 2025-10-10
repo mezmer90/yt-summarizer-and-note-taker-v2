@@ -3,6 +3,16 @@ const { query } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const { generateAdminToken } = require('../config/jwt');
 
+// Import cache from userController to invalidate when needed
+let userControllerCache = null;
+try {
+  const userController = require('./userController');
+  // Access the cache through a getter function we'll add
+  userControllerCache = userController.getCache ? userController.getCache() : null;
+} catch (err) {
+  console.log('⚠️ Could not access userController cache for invalidation');
+}
+
 // Admin login
 const adminLogin = async (req, res) => {
   try {
@@ -170,6 +180,12 @@ const updateSystemSetting = async (req, res) => {
     }
 
     console.log(`✅ Database update successful`);
+
+    // Invalidate API key cache if the OpenRouter API key was updated
+    if (settingKey === 'openrouter_api_key' && userControllerCache) {
+      userControllerCache.apiKey = { value: null, expiry: 0 };
+      console.log('🗑️ OpenRouter API key cache invalidated');
+    }
 
     // Log admin action
     await query(
