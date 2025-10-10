@@ -150,6 +150,7 @@
             <button onclick="generateAllLogos('style1')">Style 1: Bold YT</button>
             <button onclick="generateAllLogos('style2')">Style 2: Note Icon</button>
             <button onclick="generateAllLogos('style3')">Style 3: Modern</button>
+            <button onclick="generateAllLogos('style4')">Style 4: YT + Note</button>
         </div>
     </div>
 
@@ -236,6 +237,50 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('YT', size * 0.5, size * 0.5);
+
+            } else if (style === 'style4') {
+                // Style 4: Bold YT + Note Icon (Combined)
+                // Red rounded rectangle background
+                ctx.fillStyle = YOUTUBE_RED;
+                ctx.beginPath();
+                ctx.roundRect(0, 0, size, size, size * 0.15);
+                ctx.fill();
+
+                // White "YT" text on the left side
+                ctx.fillStyle = YOUTUBE_WHITE;
+                ctx.font = `bold ${size * 0.35}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('YT', size * 0.3, size * 0.5);
+
+                // Small note icon on the right side
+                const noteSize = size * 0.3;
+                const noteX = size * 0.6;
+                const noteY = size * 0.35;
+
+                // White note/document
+                ctx.fillStyle = YOUTUBE_WHITE;
+                ctx.fillRect(noteX, noteY, noteSize, noteSize * 1.2);
+
+                // Fold corner
+                ctx.fillStyle = '#E0E0E0';
+                ctx.beginPath();
+                ctx.moveTo(noteX + noteSize * 0.6, noteY);
+                ctx.lineTo(noteX + noteSize, noteY + noteSize * 0.4);
+                ctx.lineTo(noteX + noteSize * 0.6, noteY + noteSize * 0.4);
+                ctx.fill();
+
+                // Lines on note (smaller)
+                ctx.strokeStyle = YOUTUBE_RED;
+                ctx.lineWidth = size * 0.015;
+                ctx.beginPath();
+                ctx.moveTo(noteX + noteSize * 0.15, noteY + noteSize * 0.6);
+                ctx.lineTo(noteX + noteSize * 0.85, noteY + noteSize * 0.6);
+                ctx.moveTo(noteX + noteSize * 0.15, noteY + noteSize * 0.8);
+                ctx.lineTo(noteX + noteSize * 0.85, noteY + noteSize * 0.8);
+                ctx.moveTo(noteX + noteSize * 0.15, noteY + noteSize * 1.0);
+                ctx.lineTo(noteX + noteSize * 0.6, noteY + noteSize * 1.0);
+                ctx.stroke();
             }
         }
 
