@@ -64,9 +64,9 @@ app.use(cors({
 // Webhook route MUST come before body parsing (needs raw body)
 app.use('/api/webhook', webhookRoutes);
 
-// Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing - increase limit to 10MB for screenshot uploads (base64 encoded)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging
 if (process.env.NODE_ENV !== 'production') {

@@ -133,6 +133,20 @@ async function createFeedbackTable() {
   }
 }
 
+// Add screenshot column to feedback table
+async function addScreenshotToFeedback() {
+  try {
+    const migrationSQL = fs.readFileSync(
+      path.join(__dirname, 'src/models/add_screenshot_to_feedback.sql'),
+      'utf8'
+    );
+    await pool.query(migrationSQL);
+    console.log('✅ Screenshot column added to feedback table');
+  } catch (error) {
+    console.error('⚠️  Error adding screenshot column:', error.message);
+  }
+}
+
 // Initialize database and admin user on startup
 async function initializeServer() {
   await updateDatabaseViews();
@@ -143,6 +157,7 @@ async function initializeServer() {
   await createAdminSettingsTable();
   await addAISettings();
   await createFeedbackTable();
+  await addScreenshotToFeedback();
   await initializeAdminUser();
 }
 
