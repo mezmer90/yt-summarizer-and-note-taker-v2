@@ -306,6 +306,70 @@ const sendAdminNewVerificationNotification = async (verificationData) => {
   return sendEmail({ to: adminEmail, subject, html });
 };
 
+// Send feedback reply email using feedback@aifreedomclub.com
+const sendFeedbackReply = async (to, feedbackType, feedbackMessage, replyMessage, repliedBy) => {
+  try {
+    console.log('📧 Sending feedback reply email to:', to);
+
+    if (!process.env.RESEND_API_KEY) {
+      console.error('❌ RESEND_API_KEY not configured');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const typeEmojis = {
+      bug: '🐛',
+      feature: '💡',
+      improvement: '⚡',
+      compliment: '💜',
+      other: '💬'
+    };
+
+    const result = await resend.emails.send({
+      from: 'feedback@aifreedomclub.com',
+      to,
+      subject: `Re: Your ${feedbackType} feedback`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0;">💬 Response to Your Feedback</h1>
+            <p style="margin: 10px 0 0 0;">YouTube Summarizer Pro</p>
+          </div>
+
+          <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2>Thank you for your feedback!</h2>
+
+            <p>We've reviewed your ${feedbackType} feedback and wanted to respond:</p>
+
+            <div style="background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #666;">Your feedback:</p>
+              <p style="margin: 10px 0 0 0; white-space: pre-wrap; color: #333;">${feedbackMessage}</p>
+            </div>
+
+            <div style="background: white; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0; font-weight: bold; color: #667eea;">Our Response:</p>
+              <p style="margin: 10px 0 0 0; white-space: pre-wrap; color: #333;">${replyMessage}</p>
+            </div>
+
+            <p>If you have any additional questions or feedback, feel free to reach out again!</p>
+
+            <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
+              <p>Best regards,<br>${repliedBy || 'The YouTube Summarizer Pro Team'}</p>
+              <p style="font-size: 12px; margin-top: 20px;">This email was sent from feedback@aifreedomclub.com</p>
+            </div>
+          </div>
+        </div>
+      `
+    });
+
+    console.log('✅ Feedback reply email sent via Resend! Message ID:', result.id);
+    return { success: true, messageId: result.id };
+
+  } catch (error) {
+    console.error('❌ Failed to send feedback reply email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
@@ -314,5 +378,6 @@ module.exports = {
   sendStudentApprovalEmail,
   generateVerificationCode,
   sendEmailVerificationCode,
-  sendAdminNewVerificationNotification
+  sendAdminNewVerificationNotification,
+  sendFeedbackReply
 };

@@ -11,6 +11,7 @@ const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/students');
 const stripeRoutes = require('./routes/stripe');
 const webhookRoutes = require('./routes/webhook');
+const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 
@@ -113,6 +114,7 @@ app.use('/api', userRoutes);
 app.use('/api', adminRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/stripe', stripeRoutes);
+app.use('/api', feedbackRoutes);
 
 // Root route
 app.get('/', (req, res) => {

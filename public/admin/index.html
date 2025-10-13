@@ -80,6 +80,7 @@
         <button class="tab active" data-tab="models">Model Configuration</button>
         <button class="tab" data-tab="users">Users</button>
         <button class="tab" data-tab="students">Student Verifications</button>
+        <button class="tab" data-tab="feedback">Feedback</button>
         <button class="tab" data-tab="settings">Settings</button>
         <button class="tab" data-tab="logs">Logs</button>
       </div>
@@ -107,6 +108,20 @@
           <button class="filter-btn active" data-filter="all">All</button>
         </div>
         <div id="studentsList" class="students-table"></div>
+      </div>
+
+      <!-- Feedback Tab -->
+      <div id="feedbackTab" class="tab-content">
+        <h2>User Feedback</h2>
+        <div class="filter-buttons">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="new">New</button>
+          <button class="filter-btn" data-filter="read">Read</button>
+          <button class="filter-btn" data-filter="replied">Replied</button>
+          <button class="filter-btn" data-filter="bug">Bugs</button>
+          <button class="filter-btn" data-filter="feature">Features</button>
+        </div>
+        <div id="feedbackList" class="feedback-table"></div>
       </div>
 
       <!-- Settings Tab -->

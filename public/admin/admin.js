@@ -92,6 +92,7 @@ async function loadDashboardData() {
     loadModels(),
     loadUsers(),
     loadStudentVerifications('all'),
+    loadFeedback('all'),
     loadSettings(),
     loadLogs()
   ]);
@@ -800,14 +801,216 @@ async function aiVerifyStudent(id) {
   }
 }
 
+// ===== Feedback Management =====
+
+let currentFeedbackFilter = 'all';
+
+// Load feedback
+async function loadFeedback(filter = 'all') {
+  try {
+    const response = await fetch(`${API_BASE}/feedback/all`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.error);
+
+    // Filter feedback based on selected filter
+    let filteredFeedback = data.feedback;
+    if (filter !== 'all') {
+      if (filter === 'bug' || filter === 'feature' || filter === 'improvement' || filter === 'compliment' || filter === 'other') {
+        filteredFeedback = data.feedback.filter(f => f.type === filter);
+      } else {
+        filteredFeedback = data.feedback.filter(f => f.status === filter);
+      }
+    }
+
+    renderFeedback(filteredFeedback);
+  } catch (error) {
+    console.error('Error loading feedback:', error);
+    document.getElementById('feedbackList').innerHTML = `
+      <div class="error-message">Failed to load feedback: ${error.message}</div>
+    `;
+  }
+}
+
+// Render feedback table
+function renderFeedback(feedback) {
+  const container = document.getElementById('feedbackList');
+
+  if (!feedback || feedback.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>No ${currentFeedbackFilter === 'all' ? '' : currentFeedbackFilter} feedback found.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const typeEmojis = {
+    bug: '🐛',
+    feature: '💡',
+    improvement: '⚡',
+    compliment: '💜',
+    other: '💬'
+  };
+
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Type</th>
+          <th>From</th>
+          <th>Message</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${feedback.map(f => `
+          <tr>
+            <td>#${f.id}</td>
+            <td>
+              <span style="font-size: 20px;" title="${f.type}">${typeEmojis[f.type] || '💬'}</span>
+              <br><small>${f.type}</small>
+            </td>
+            <td>
+              <strong>${f.user_email}</strong>
+              <br><small class="user-id">${f.extension_user_id.substring(0, 15)}...</small>
+            </td>
+            <td>
+              <div style="max-width: 300px; max-height: 100px; overflow: auto; white-space: pre-wrap;">
+                ${f.message}
+              </div>
+            </td>
+            <td>
+              <span class="status-badge status-${f.status}">${f.status.toUpperCase()}</span>
+              ${f.replied_at ? `<br><small>By: ${f.replied_by}</small>` : ''}
+            </td>
+            <td>${new Date(f.submitted_at).toLocaleString()}</td>
+            <td class="actions-cell">
+              ${f.status === 'new' ? `
+                <button class="btn-feedback-mark-read" data-feedback-id="${f.id}">Mark as Read</button>
+                <br>
+              ` : ''}
+              ${f.status !== 'replied' && f.user_email !== 'Not provided' ? `
+                <button class="btn-feedback-reply" data-feedback-id="${f.id}" data-user-email="${f.user_email}" data-feedback-type="${f.type}" data-feedback-message="${f.message.replace(/"/g, '&quot;')}">Reply</button>
+                <br>
+              ` : ''}
+              ${f.status === 'replied' ? `
+                <button class="btn-feedback-view-reply" data-reply="${f.reply_message.replace(/"/g, '&quot;')}" data-replied-by="${f.replied_by}">View Reply</button>
+                <br>
+              ` : ''}
+              <button class="btn-feedback-delete" data-feedback-id="${f.id}">Delete</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  container.innerHTML = html;
+}
+
+// Mark feedback as read
+async function markFeedbackAsRead(id) {
+  try {
+    const response = await fetch(`${API_BASE}/feedback/${id}/mark-read`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to mark as read');
+
+    await loadFeedback(currentFeedbackFilter);
+  } catch (error) {
+    console.error('Error marking feedback as read:', error);
+    alert('Failed to mark as read');
+  }
+}
+
+// Reply to feedback
+async function replyToFeedback(id, userEmail, feedbackType, feedbackMessage) {
+  const replyMessage = prompt(`Reply to this ${feedbackType} feedback:\n\n"${feedbackMessage.substring(0, 100)}..."\n\nEnter your reply:`);
+  if (!replyMessage) return;
+
+  const repliedBy = localStorage.getItem('adminEmail') || 'Admin';
+
+  try {
+    const response = await fetch(`${API_BASE}/feedback/${id}/reply`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        replyMessage,
+        repliedBy
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.error);
+
+    alert(`✅ Reply sent to ${userEmail} via Resend!`);
+    await loadFeedback(currentFeedbackFilter);
+  } catch (error) {
+    console.error('Error replying to feedback:', error);
+    alert('Failed to send reply: ' + error.message);
+  }
+}
+
+// View reply
+function viewReply(replyMessage, repliedBy) {
+  alert(`Reply by ${repliedBy}:\n\n${replyMessage}`);
+}
+
+// Delete feedback
+async function deleteFeedback(id) {
+  if (!confirm('Are you sure you want to delete this feedback?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/feedback/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to delete feedback');
+
+    alert('✅ Feedback deleted');
+    await loadFeedback(currentFeedbackFilter);
+  } catch (error) {
+    console.error('Error deleting feedback:', error);
+    alert('Failed to delete feedback');
+  }
+}
+
 // Setup filter buttons
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentStudentFilter = btn.dataset.filter;
-      loadStudentVerifications(currentStudentFilter);
+      // Get parent container to determine which tab's filter was clicked
+      const parentTab = btn.closest('.tab-content');
+
+      if (parentTab && parentTab.id === 'studentsTab') {
+        // Student verifications filter
+        document.querySelectorAll('#studentsTab .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentStudentFilter = btn.dataset.filter;
+        loadStudentVerifications(currentStudentFilter);
+      } else if (parentTab && parentTab.id === 'feedbackTab') {
+        // Feedback filter
+        document.querySelectorAll('#feedbackTab .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFeedbackFilter = btn.dataset.filter;
+        loadFeedback(currentFeedbackFilter);
+      }
     });
   });
 });
@@ -876,6 +1079,42 @@ document.addEventListener('click', (e) => {
     const userEmail = e.target.getAttribute('data-user-email');
     if (userEmail) {
       resetUserStudentStatus(userEmail);
+    }
+  }
+
+  // Feedback Mark as Read button
+  if (e.target.classList.contains('btn-feedback-mark-read')) {
+    const feedbackId = e.target.getAttribute('data-feedback-id');
+    if (feedbackId) {
+      markFeedbackAsRead(parseInt(feedbackId));
+    }
+  }
+
+  // Feedback Reply button
+  if (e.target.classList.contains('btn-feedback-reply')) {
+    const feedbackId = e.target.getAttribute('data-feedback-id');
+    const userEmail = e.target.getAttribute('data-user-email');
+    const feedbackType = e.target.getAttribute('data-feedback-type');
+    const feedbackMessage = e.target.getAttribute('data-feedback-message');
+    if (feedbackId && userEmail) {
+      replyToFeedback(parseInt(feedbackId), userEmail, feedbackType, feedbackMessage);
+    }
+  }
+
+  // Feedback View Reply button
+  if (e.target.classList.contains('btn-feedback-view-reply')) {
+    const replyMessage = e.target.getAttribute('data-reply');
+    const repliedBy = e.target.getAttribute('data-replied-by');
+    if (replyMessage) {
+      viewReply(replyMessage, repliedBy);
+    }
+  }
+
+  // Feedback Delete button
+  if (e.target.classList.contains('btn-feedback-delete')) {
+    const feedbackId = e.target.getAttribute('data-feedback-id');
+    if (feedbackId) {
+      deleteFeedback(parseInt(feedbackId));
     }
   }
 });

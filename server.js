@@ -119,6 +119,20 @@ async function addAISettings() {
   }
 }
 
+// Create feedback table
+async function createFeedbackTable() {
+  try {
+    const migrationSQL = fs.readFileSync(
+      path.join(__dirname, 'src/models/create_feedback_table.sql'),
+      'utf8'
+    );
+    await pool.query(migrationSQL);
+    console.log('✅ Feedback table created successfully');
+  } catch (error) {
+    console.error('⚠️  Error creating feedback table:', error.message);
+  }
+}
+
 // Initialize database and admin user on startup
 async function initializeServer() {
   await updateDatabaseViews();
@@ -128,6 +142,7 @@ async function initializeServer() {
   await addAIVerificationColumns();
   await createAdminSettingsTable();
   await addAISettings();
+  await createFeedbackTable();
   await initializeAdminUser();
 }
 
