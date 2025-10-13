@@ -7,7 +7,7 @@ const { sendEmail, sendFeedbackReply } = require('../services/emailService');
 // Submit feedback
 router.post('/feedback/submit', async (req, res) => {
   try {
-    const { extensionUserId, userEmail, type, message, timestamp } = req.body;
+    const { extensionUserId, userEmail, type, message, timestamp, screenshot } = req.body;
 
     // Validate required fields
     if (!type || !message) {
@@ -26,16 +26,17 @@ router.post('/feedback/submit', async (req, res) => {
       });
     }
 
-    // Insert feedback into database
+    // Insert feedback into database with screenshot
     const result = await pool.query(
-      `INSERT INTO feedback (extension_user_id, user_email, type, message, status, submitted_at)
-       VALUES ($1, $2, $3, $4, 'new', $5)
+      `INSERT INTO feedback (extension_user_id, user_email, type, message, screenshot_url, status, submitted_at)
+       VALUES ($1, $2, $3, $4, $5, 'new', $6)
        RETURNING id, submitted_at`,
       [
         extensionUserId || 'anonymous',
         userEmail || 'Not provided',
         type,
         message,
+        screenshot || null,
         timestamp || new Date().toISOString()
       ]
     );
@@ -123,6 +124,7 @@ router.get('/feedback/all', async (req, res) => {
         user_email,
         type,
         message,
+        screenshot_url,
         status,
         replied_at,
         reply_message,

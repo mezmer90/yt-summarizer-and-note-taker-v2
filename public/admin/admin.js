@@ -864,6 +864,7 @@ function renderFeedback(feedback) {
           <th>Type</th>
           <th>From</th>
           <th>Message</th>
+          <th>Screenshot</th>
           <th>Status</th>
           <th>Submitted</th>
           <th>Actions</th>
@@ -887,6 +888,13 @@ function renderFeedback(feedback) {
               </div>
             </td>
             <td>
+              ${f.screenshot_url ? `
+                <button class="btn-view-image" data-image-url="${f.screenshot_url}" data-title="Feedback Screenshot #${f.id}" style="background: #667eea; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                  📷 View Screenshot
+                </button>
+              ` : '<span style="color: #999; font-size: 12px;">No screenshot</span>'}
+            </td>
+            <td>
               <span class="status-badge status-${f.status}">${f.status.toUpperCase()}</span>
               ${f.replied_at ? `<br><small>By: ${f.replied_by}</small>` : ''}
             </td>
@@ -897,7 +905,7 @@ function renderFeedback(feedback) {
                 <br>
               ` : ''}
               ${f.status !== 'replied' && f.user_email !== 'Not provided' ? `
-                <button class="btn-feedback-reply" data-feedback-id="${f.id}" data-user-email="${f.user_email}" data-feedback-type="${f.type}" data-feedback-message="${f.message.replace(/"/g, '&quot;')}">Reply</button>
+                <button class="btn-feedback-reply" data-feedback-id="${f.id}" data-user-email="${f.user_email}" data-feedback-type="${f.type}" data-feedback-message="${f.message.replace(/"/g, '&quot;')}" data-screenshot="${f.screenshot_url || ''}">Reply</button>
                 <br>
               ` : ''}
               ${f.status === 'replied' ? `

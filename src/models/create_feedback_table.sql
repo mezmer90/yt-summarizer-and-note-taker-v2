@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS feedback (
   user_email VARCHAR(255),
   type VARCHAR(50) NOT NULL,
   message TEXT NOT NULL,
+  screenshot_url TEXT,
   status VARCHAR(50) DEFAULT 'new',
   replied_at TIMESTAMP,
   reply_message TEXT,
