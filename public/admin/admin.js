@@ -932,15 +932,57 @@ async function markFeedbackAsRead(id) {
   }
 }
 
-// Reply to feedback
-async function replyToFeedback(id, userEmail, feedbackType, feedbackMessage) {
-  const replyMessage = prompt(`Reply to this ${feedbackType} feedback:\n\n"${feedbackMessage.substring(0, 100)}..."\n\nEnter your reply:`);
-  if (!replyMessage) return;
+// Reply to feedback - Open modal
+function replyToFeedback(id, userEmail, feedbackType, feedbackMessage) {
+  // Get type emoji
+  const typeEmojis = {
+    bug: '🐛',
+    feature: '💡',
+    improvement: '⚡',
+    compliment: '💜',
+    other: '💬'
+  };
+
+  // Populate modal
+  const modal = document.getElementById('replyModal');
+  document.getElementById('modalFeedbackTypeIcon').textContent = typeEmojis[feedbackType] || '💬';
+  document.getElementById('modalFeedbackType').textContent = feedbackType.toUpperCase();
+  document.getElementById('modalUserEmail').textContent = userEmail;
+  document.getElementById('modalUserId').textContent = `Feedback #${id}`;
+  document.getElementById('modalFeedbackMessage').textContent = feedbackMessage;
+  document.getElementById('replyMessageInput').value = '';
+
+  // Show modal
+  modal.classList.add('active');
+
+  // Store current feedback data for sending
+  modal.dataset.feedbackId = id;
+  modal.dataset.userEmail = userEmail;
+  modal.dataset.feedbackType = feedbackType;
+}
+
+// Send reply from modal
+async function sendReplyFromModal() {
+  const modal = document.getElementById('replyModal');
+  const feedbackId = modal.dataset.feedbackId;
+  const userEmail = modal.dataset.userEmail;
+  const replyMessage = document.getElementById('replyMessageInput').value.trim();
+  const sendBtn = document.getElementById('sendReplyBtn');
+  const sendBtnText = document.getElementById('sendReplyBtnText');
+
+  if (!replyMessage) {
+    alert('Please enter a reply message');
+    return;
+  }
 
   const repliedBy = localStorage.getItem('adminEmail') || 'Admin';
 
+  // Disable button
+  sendBtn.disabled = true;
+  sendBtnText.textContent = 'Sending...';
+
   try {
-    const response = await fetch(`${API_BASE}/feedback/${id}/reply`, {
+    const response = await fetch(`${API_BASE}/feedback/${feedbackId}/reply`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authToken}`,
@@ -957,12 +999,57 @@ async function replyToFeedback(id, userEmail, feedbackType, feedbackMessage) {
     if (!response.ok) throw new Error(data.error);
 
     alert(`✅ Reply sent to ${userEmail} via Resend!`);
+
+    // Close modal
+    modal.classList.remove('active');
+
+    // Reload feedback
     await loadFeedback(currentFeedbackFilter);
+
   } catch (error) {
     console.error('Error replying to feedback:', error);
     alert('Failed to send reply: ' + error.message);
+  } finally {
+    sendBtn.disabled = false;
+    sendBtnText.textContent = 'Send Reply';
   }
 }
+
+// Close reply modal
+function closeReplyModal() {
+  const modal = document.getElementById('replyModal');
+  modal.classList.remove('active');
+  document.getElementById('replyMessageInput').value = '';
+}
+
+// Setup reply modal event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('replyModal');
+  const closeBtn = document.getElementById('closeReplyModal');
+  const cancelBtn = document.getElementById('cancelReplyBtn');
+  const sendBtn = document.getElementById('sendReplyBtn');
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeReplyModal);
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', closeReplyModal);
+  }
+
+  if (sendBtn) {
+    sendBtn.addEventListener('click', sendReplyFromModal);
+  }
+
+  // Close modal when clicking outside
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeReplyModal();
+      }
+    });
+  }
+});
 
 // View reply
 function viewReply(replyMessage, repliedBy) {

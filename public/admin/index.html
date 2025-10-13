@@ -139,6 +139,43 @@
     </div>
   </div>
 
+  <!-- Reply Modal -->
+  <div id="replyModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>💬 Reply to Feedback</h2>
+        <button class="modal-close" id="closeReplyModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="feedback-display">
+          <h3>
+            <span id="modalFeedbackTypeIcon"></span>
+            <span id="modalFeedbackType"></span> Feedback
+          </h3>
+          <div class="feedback-meta">
+            <span>📧 <strong id="modalUserEmail"></strong></span>
+            <span>🆔 <strong id="modalUserId"></strong></span>
+          </div>
+          <div class="feedback-message" id="modalFeedbackMessage"></div>
+        </div>
+
+        <div class="form-group-modal">
+          <label for="replyMessageInput">Your Reply:</label>
+          <textarea
+            id="replyMessageInput"
+            placeholder="Write your response to the user here...&#10;&#10;The reply will be sent via email from feedback@aifreedomclub.com"
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" id="cancelReplyBtn">Cancel</button>
+        <button class="btn-modal-send" id="sendReplyBtn">
+          <span id="sendReplyBtnText">Send Reply</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="admin.js"></script>
 </body>
 </html>
